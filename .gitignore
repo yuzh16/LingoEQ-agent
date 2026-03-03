@@ -1,0 +1,24 @@
+# Python 忽略
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 环境相关
+.env
+venv/
+env/
+.venv/
+
+# 向量数据库（ChromaDB）持久化目录
+data/vector_db/
+
+# IDE 和系统文件
+.vscode/
+.idea/
+.DS_Store
+
+# 构建相关 (如果有打包脚本)
+build/
+dist/
+*.egg-info/

@@ -1,0 +1,792 @@
+[
+  {
+    "id": "gen_warmth",
+    "intent": ["温暖", "暖", "不冷", "饱满", "warmth", "warm"],
+    "target_instrument": "general",
+    "acoustic_description": "声音听起来单薄，缺乏温度和厚度。",
+    "action": {
+      "frequency_range": [200, 500],
+      "filter_type": "Peaking",
+      "gain_advice": "适度提升 (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.0) 以获得自然的听感"
+    },
+    "reasoning_hint": "温暖感主要集中在中低频，提升该频段可增加声音的肉感和温度。"
+  },
+  {
+    "id": "gen_mud",
+    "intent": ["浑浊", "糊", "闷", "不清晰", "mud", "muddy"],
+    "target_instrument": "general",
+    "acoustic_description": "声音听起来像蒙着一层布，低中频轰鸣且不清晰。",
+    "action": {
+      "frequency_range": [250, 400],
+      "filter_type": "Peaking",
+      "gain_advice": "适度衰减 (Cut)",
+      "q_advice": "使用中等偏宽的 Q 值 (约 1.0 - 1.5) 切除共鸣区域"
+    },
+    "reasoning_hint": "去除 250Hz-400Hz 的冗余能量可以腾出混音空间，消除糊和闷的感觉。"
+  },
+  {
+    "id": "gen_nasality",
+    "intent": ["鼻音", "捏着鼻子", "感冒声", "nasal"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声听起来像感冒了或者捏着鼻子唱歌。",
+    "action": {
+      "frequency_range": [800, 1200],
+      "filter_type": "Peaking",
+      "gain_advice": "适度衰减 (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.0)"
+    },
+    "reasoning_hint": "人声的鼻腔共鸣通常落在此频段，适度衰减可恢复自然音色。"
+  },
+  {
+    "id": "gen_air",
+    "intent": ["通透", "空气感", "亮", "开阔", "air", "airy", "清晰"],
+    "target_instrument": "general",
+    "acoustic_description": "声音缺乏高频的延伸，听起来不够开阔和明亮。",
+    "action": {
+      "frequency_range": [10000, 20000],
+      "filter_type": "HighShelf",
+      "gain_advice": "适度提升 (Boost)",
+      "q_advice": "N/A (HighShelf 通常保持默认斜率即可)"
+    },
+    "reasoning_hint": "10kHz 以上的频段控制着声音的空气感和清晰度边缘。"
+  },
+  {
+    "id": "gen_presence",
+    "intent": ["贴脸", "靠前", "突出", "存在感", "presence"],
+    "target_instrument": "general",
+    "acoustic_description": "声音在混音中靠后，缺乏存在感，容易被其他乐器掩蔽。",
+    "action": {
+      "frequency_range": [3000, 5000],
+      "filter_type": "Peaking",
+      "gain_advice": "轻微提升 (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.2)"
+    },
+    "reasoning_hint": "人耳对 3kHz-5kHz 极其敏感，提升该频段能显著拉近声像距离。"
+  },
+  {
+    "id": "gen_thin",
+    "intent": ["薄", "单薄", "没底气", "没根", "thin"],
+    "target_instrument": "general",
+    "acoustic_description": "声音缺乏根基，听起来轻飘飘的，没有分量。",
+    "action": {
+      "frequency_range": [80, 100],
+      "filter_type": "Peaking",
+      "gain_advice": "补充低频能量 (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.0) 避免轰鸣"
+    },
+    "reasoning_hint": "声音太薄通常是因为低频被切多了，补充 80Hz-100Hz 可解决单薄感。"
+  },
+  {
+    "id": "gen_deess",
+    "intent": ["刺耳", "齿音", "嘶嘶声", "尖锐", "de-ess", "sibilance"],
+    "target_instrument": "general",
+    "acoustic_description": "发 's', 'ch', 't' 音时产生刺耳的高频摩擦声。",
+    "action": {
+      "frequency_range": [6000, 8000],
+      "filter_type": "Peaking",
+      "gain_advice": "动态衰减或静态衰减 (Cut)",
+      "q_advice": "使用窄 Q 值 (约 3.0 - 5.0) 精准打击齿音"
+    },
+    "reasoning_hint": "齿音通常是非常窄的谐振峰，需要用窄带精准衰减。"
+  },
+  {
+    "id": "gen_lowcut_cleanup",
+    "intent": ["低频清理", "切低", "避让低音", "清理底噪", "low cut"],
+    "target_instrument": "non_bass",
+    "acoustic_description": "非低音类乐器含有不必要的极低频隆隆声或底噪。",
+    "action": {
+      "frequency_range": [80, 80],
+      "filter_type": "LowCut",
+      "gain_advice": "N/A (滤波器衰减斜率生效)",
+      "q_advice": "通常使用 12dB/oct 或 24dB/oct 的衰减斜率"
+    },
+    "reasoning_hint": "对于非贝斯类乐器，切除 80Hz 以下频率以保持整体清晰。"
+  },
+
+  {
+    "id": "voc_muddy",
+    "intent": ["人声糊", "人声浑浊", "不清晰", "低频闷"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声低频部分听起来浑浊，缺乏清晰度。",
+    "action": {
+      "frequency_range": [60, 60],
+      "filter_type": "LowCut",
+      "gain_advice": "N/A",
+      "q_advice": "12dB/oct 或 24dB/oct"
+    },
+    "reasoning_hint": "切除 60Hz 以下的频率，可直接减少人声的低频浑浊感。"
+  },
+  {
+    "id": "voc_warm",
+    "intent": ["人声变暖", "人声单薄", "加厚", "磁性"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声缺乏厚度和温暖的质感。",
+    "action": {
+      "frequency_range": [300, 500],
+      "filter_type": "Peaking",
+      "gain_advice": "适度提升 (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "在 300Hz-500Hz 提升可为人声增加温暖感。"
+  },
+  {
+    "id": "voc_air",
+    "intent": ["人声通透", "人声亮", "质感", "细节", "华丽"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声缺乏高频细节和通透感。",
+    "action": {
+      "frequency_range": [5000, 8000],
+      "filter_type": "Peaking",
+      "gain_advice": "适度提升 (Boost)",
+      "q_advice": "使用宽 Q 值 (约 0.7 - 1.2)"
+    },
+    "reasoning_hint": "5kHz-8kHz 提升能极大地增强人声的高频细节与通透感。"
+  },
+  {
+    "id": "voc_low_mud",
+    "intent": ["低音浑浊", "臃肿", "发闷"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声在低频段显得臃肿发闷。",
+    "action": {
+      "frequency_range": [100, 200],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5)"
+    },
+    "reasoning_hint": "100Hz-200Hz 衰减可以有效减少低频臃肿。"
+  },
+  {
+    "id": "voc_male_power",
+    "intent": ["男声无力", "缺乏力度", "没劲"],
+    "target_instrument": "vocal",
+    "acoustic_description": "男声听起来缺乏中低频的支撑和力度。",
+    "action": {
+      "frequency_range": [1000, 3000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "1kHz-3kHz 提升可增强男声的中低频力度。"
+  },
+  {
+    "id": "voc_high_harsh",
+    "intent": ["高音毛刺", "高频发毛", "高频刺耳", "柔化高频"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声高音部分带有毛刺感，听感不平滑。",
+    "action": {
+      "frequency_range": [10000, 10000],
+      "filter_type": "HighCut",
+      "gain_advice": "N/A",
+      "q_advice": "12dB/oct 斜率"
+    },
+    "reasoning_hint": "切除 10kHz 左右频率，可柔化高频毛刺。"
+  },
+  {
+    "id": "voc_hard_mic",
+    "intent": ["话筒声硬", "箱体质感", "生硬"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声带有过重的话筒箱体感，听起来生硬。",
+    "action": {
+      "frequency_range": [500, 630],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.0)"
+    },
+    "reasoning_hint": "500Hz-630Hz 衰减可削弱话筒自带的生硬箱体质感。"
+  },
+  {
+    "id": "voc_fuzz",
+    "intent": ["刺耳发毛", "高频泛音过多", "刮耳"],
+    "target_instrument": "vocal",
+    "acoustic_description": "声音极高频部分发毛刺耳。",
+    "action": {
+      "frequency_range": [12000, 16000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5)"
+    },
+    "reasoning_hint": "12kHz-16kHz 衰减可以减少刺耳的高频泛音。"
+  },
+  {
+    "id": "voc_presence",
+    "intent": ["太靠后", "人声靠前", "突出人声"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声在伴奏中太靠后，被乐器掩盖。",
+    "action": {
+      "frequency_range": [3000, 3000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "3kHz 左右提升能显著增强人声的存在感，使其靠前。"
+  },
+  {
+    "id": "voc_hard",
+    "intent": ["人声太硬", "生硬", "尖锐"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声中高频显得过于僵硬，不够柔和。",
+    "action": {
+      "frequency_range": [5000, 5000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用中宽 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "5kHz 左右衰减能够柔化人声过硬的高频。"
+  },
+  {
+    "id": "voc_low_weak",
+    "intent": ["低音不饱满", "下潜不够", "缺低频"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声低音部分缺乏下潜和饱满度。",
+    "action": {
+      "frequency_range": [60, 80],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "提升 60Hz-80Hz 可为人声补充低频下潜。"
+  },
+  {
+    "id": "voc_grain",
+    "intent": ["颗粒感重", "粗糙", "高频颗粒"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声高频颗粒感太重，听感粗糙。",
+    "action": {
+      "frequency_range": [8000, 10000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5)"
+    },
+    "reasoning_hint": "8kHz-10kHz 衰减能有效减少高频的颗粒感。"
+  },
+  {
+    "id": "voc_radio",
+    "intent": ["电台感", "中频密度", "广播音"],
+    "target_instrument": "vocal",
+    "acoustic_description": "想要增强人声的中频密度，制造类似电台的听感。",
+    "action": {
+      "frequency_range": [500, 800],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用中宽 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "500Hz-800Hz 提升可以极大地增强中频密度，制造电台感。"
+  },
+
+  {
+    "id": "fix_headroom",
+    "intent": ["响度上不去", "释放动态空间", "底噪过大"],
+    "target_instrument": "general",
+    "acoustic_description": "混音整体响度被极低频吃掉，推不起响度。",
+    "action": {
+      "frequency_range": [100, 100],
+      "filter_type": "LowCut",
+      "gain_advice": "N/A",
+      "q_advice": "12dB/oct"
+    },
+    "reasoning_hint": "切除 100Hz 以下极低频可大幅释放动态余量 (Headroom)。"
+  },
+  {
+    "id": "fix_low_resonance",
+    "intent": ["低频驻波", "嗡嗡声", "低频共振"],
+    "target_instrument": "general",
+    "acoustic_description": "低频存在恼人的驻波和共振。",
+    "action": {
+      "frequency_range": [300, 300],
+      "filter_type": "Peaking",
+      "gain_advice": "使用动态 EQ 衰减 (Dynamic Cut)",
+      "q_advice": "使用较窄的 Q 值 (约 2.0 - 4.0)"
+    },
+    "reasoning_hint": "300Hz 附近的低频共振最好使用动态 EQ 进行抑制。"
+  },
+  {
+    "id": "fix_too_close",
+    "intent": ["声音太贴耳", "压迫感", "中频压迫"],
+    "target_instrument": "general",
+    "acoustic_description": "声音中频压迫感太强，显得过于贴耳。",
+    "action": {
+      "frequency_range": [500, 500],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "衰减 500Hz 左右可以有效减少中频带来的听觉压迫感。"
+  },
+  {
+    "id": "fix_too_forward",
+    "intent": ["声音太进", "增加距离感", "推后"],
+    "target_instrument": "general",
+    "acoustic_description": "声音过于靠前，需要将其在声场中推后。",
+    "action": {
+      "frequency_range": [1000, 1000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "衰减 1kHz 可以有效增加声音的空间距离感。"
+  },
+  {
+    "id": "fix_boxy",
+    "intent": ["盒子音", "箱体共鸣", "发空", "boxy"],
+    "target_instrument": "general",
+    "acoustic_description": "声音听起来像被关在盒子里一样，有恼人的箱体共鸣。",
+    "action": {
+      "frequency_range": [1500, 1500],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用中等偏窄的 Q 值 (约 2.0 - 3.0)"
+    },
+    "reasoning_hint": "1.5kHz 附近的突起通常是盒子音 (Boxiness) 的元凶。"
+  },
+  {
+    "id": "fix_telephone",
+    "intent": ["电话音", "窄带感", "塑料味"],
+    "target_instrument": "general",
+    "acoustic_description": "声音带有不自然的电话机或收音机质感。",
+    "action": {
+      "frequency_range": [2000, 2000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用较窄的 Q 值 (约 2.0 - 3.0)"
+    },
+    "reasoning_hint": "衰减 2kHz 左右可去除窄带感和电话音。"
+  },
+  {
+    "id": "fix_grain_boost",
+    "intent": ["增加颗粒感", "细节质感", "粗糙美感"],
+    "target_instrument": "general",
+    "acoustic_description": "需要突出声音的纹理和颗粒细节。",
+    "action": {
+      "frequency_range": [800, 800],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.5)"
+    },
+    "reasoning_hint": "提升 800Hz 能够凸显声音的细节与颗粒质感。"
+  },
+  {
+    "id": "fix_sweet_spot",
+    "intent": ["甜点区", "核心表现力", "好听"],
+    "target_instrument": "general",
+    "acoustic_description": "希望整体提升声音最核心、最悦耳的频段。",
+    "action": {
+      "frequency_range": [1500, 1500],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.0)"
+    },
+    "reasoning_hint": "1.5kHz 是人耳觉得悦耳的甜点区，提升可突出表现力。"
+  },
+  {
+    "id": "fix_harmonic_base",
+    "intent": ["高频泛音基点", "高频自然度", "泛音"],
+    "target_instrument": "general",
+    "acoustic_description": "需要增强声音的高频自然延伸。",
+    "action": {
+      "frequency_range": [3500, 3500],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "3.5kHz 作为高频泛音的基点，提升可增强自然度。"
+  },
+  {
+    "id": "fix_harsh_piercing",
+    "intent": ["扎耳感", "尖锐", "刺疼"],
+    "target_instrument": "general",
+    "acoustic_description": "声音中高频存在扎耳、尖锐的刺痛感。",
+    "action": {
+      "frequency_range": [4500, 4500],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用窄 Q 值 (约 2.0 - 4.0)"
+    },
+    "reasoning_hint": "4.5kHz 附近的峰值极易产生扎耳感，需针对性衰减。"
+  },
+  {
+    "id": "fix_high_tilt",
+    "intent": ["高频翘头感", "高频亮度", "刺激感"],
+    "target_instrument": "general",
+    "acoustic_description": "希望声音高频有明亮的翘起感。",
+    "action": {
+      "frequency_range": [9000, 9000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用中宽 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "9kHz 提升可制造高频亮度与翘头感。"
+  },
+
+  {
+    "id": "drum_kick_cut",
+    "intent": ["底鼓切低", "鼓浑浊", "底鼓去杂音", "kick"],
+    "target_instrument": "drum",
+    "acoustic_description": "底鼓极低频过于浑浊，带有杂音。",
+    "action": {
+      "frequency_range": [60, 60],
+      "filter_type": "LowCut",
+      "gain_advice": "N/A",
+      "q_advice": "12dB/oct"
+    },
+    "reasoning_hint": "切除底鼓 60Hz 以下频率可控制浑浊并减少极低频杂音。"
+  },
+  {
+    "id": "drum_kick_body",
+    "intent": ["底鼓力度", "鼓声饱满", "锤击感", "鼓加厚"],
+    "target_instrument": "drum",
+    "acoustic_description": "底鼓听起来缺乏力量和肉感。",
+    "action": {
+      "frequency_range": [80, 100],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~5dB (Boost)",
+      "q_advice": "使用中等偏宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "80-100Hz 是底鼓的主体频段，提升可增加力度使其饱满。"
+  },
+  {
+    "id": "drum_kick_box",
+    "intent": ["底鼓纸箱声", "破纸盒", "鼓发空"],
+    "target_instrument": "drum",
+    "acoustic_description": "底鼓听起来像在敲破纸箱。",
+    "action": {
+      "frequency_range": [400, 500],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 3~5dB (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.0)"
+    },
+    "reasoning_hint": "400-500Hz 是底鼓产生“纸箱声”的元凶区域，必须衰减。"
+  },
+  {
+    "id": "drum_kick_click",
+    "intent": ["底鼓点击感", "鼓点高频", "鼓皮声", "kick click"],
+    "target_instrument": "drum",
+    "acoustic_description": "底鼓缺乏踩槌击打鼓皮的瞬间高频点击声。",
+    "action": {
+      "frequency_range": [2000, 5000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~4dB (Boost)",
+      "q_advice": "使用中等偏宽的 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "2k-5kHz 提升能大幅增加底鼓的高频点击感和瞬间动态。"
+  },
+
+  {
+    "id": "bass_body",
+    "intent": ["贝斯厚度", "低频根基", "bass厚"],
+    "target_instrument": "bass",
+    "acoustic_description": "贝斯缺乏根基和稳定感。",
+    "action": {
+      "frequency_range": [60, 80],
+      "filter_type": "Peaking",
+      "gain_advice": "提升约 3dB (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "提升 60-80Hz 可增强贝斯的低频根基与厚度。"
+  },
+  {
+    "id": "bass_mud_clear",
+    "intent": ["贝斯浑浊", "贝斯打架", "避让底鼓"],
+    "target_instrument": "bass",
+    "acoustic_description": "贝斯低频发浑，且与底鼓频段冲突。",
+    "action": {
+      "frequency_range": [100, 250],
+      "filter_type": "Peaking",
+      "gain_advice": "适当削减 (Cut)",
+      "q_advice": "使用中等偏宽 Q 值 (约 1.2)"
+    },
+    "reasoning_hint": "在 100-250Hz 削减贝斯可以减少浑浊，避免与底鼓打架。"
+  },
+  {
+    "id": "bass_pluck",
+    "intent": ["贝斯拨弦", "贝斯清晰度", "指弹"],
+    "target_instrument": "bass",
+    "acoustic_description": "贝斯的拨弦细节不够清晰。",
+    "action": {
+      "frequency_range": [700, 1000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~6dB (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.5)"
+    },
+    "reasoning_hint": "700-1kHz 提升可增加贝斯清晰度，突出拨弦细节。"
+  },
+  {
+    "id": "bass_slap",
+    "intent": ["贝斯slap", "贝斯打弦", "瞬间动态"],
+    "target_instrument": "bass",
+    "acoustic_description": "贝斯的 Slap 技巧或高频动态不突出。",
+    "action": {
+      "frequency_range": [2000, 4000],
+      "filter_type": "Peaking",
+      "gain_advice": "适当提升 (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "2k-4kHz 提升可突出贝斯 Slap 风格的高频瞬间动态。"
+  },
+
+    {
+    "id": "piano_warmth",
+    "intent": ["钢琴温暖", "键盘低频", "钢琴加厚"],
+    "target_instrument": "piano", 
+    "acoustic_description": "钢琴或键盘的低音区缺乏温暖感。",
+    "action": {
+      "frequency_range": [100, 200],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~3dB (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "提升 100-200Hz 可增强键盘乐器的低频温暖感。"
+  },
+  {
+    "id": "piano_melody",
+    "intent": ["钢琴清晰度", "旋律力度", "键盘突出"],
+    "target_instrument": "piano",
+    "acoustic_description": "钢琴中频旋律线不清晰，缺乏力度。",
+    "action": {
+      "frequency_range": [1000, 3000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~5dB (Boost)",
+      "q_advice": "使用中宽 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "1k-3kHz 提升可增加钢琴力度，提升中频旋律清晰度。"
+  },
+  {
+    "id": "piano_metal",
+    "intent": ["钢琴金属感", "键盘刺耳", "琴键生硬"],
+    "target_instrument": "piano",
+    "acoustic_description": "钢琴带有不悦耳的机械金属感。",
+    "action": {
+      "frequency_range": [5000, 7000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 2~5dB (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.0)"
+    },
+    "reasoning_hint": "衰减 5k-7kHz 可有效削减钢琴源的金属感。"
+  },
+  {
+    "id": "piano_air",
+    "intent": ["钢琴泛音", "钢琴明亮", "键盘空气感"],
+    "target_instrument": "piano",
+    "acoustic_description": "需要突出钢琴的高频明亮感与泛音。",
+    "action": {
+      "frequency_range": [8000, 16000],
+      "filter_type": "HighShelf",
+      "gain_advice": "提升 2~4dB (Boost)",
+      "q_advice": "N/A"
+    },
+    "reasoning_hint": "8kHz 以上使用高频架式提升可突出钢琴高频泛音。"
+  },
+
+  {
+    "id": "string_warmth",
+    "intent": ["弦乐温暖", "提琴质感", "大提琴厚度"],
+    "target_instrument": "string",
+    "acoustic_description": "弦乐器（如小提琴、大提琴）听起来发干，缺乏质感。",
+    "action": {
+      "frequency_range": [200, 400],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~3dB (Boost)",
+      "q_advice": "使用宽 Q 值 (约 0.7 - 1.0)"
+    },
+    "reasoning_hint": "提升 200-400Hz 可大幅增加弦乐的温暖感与木质感。"
+  },
+  {
+    "id": "string_expression",
+    "intent": ["弦乐表现力", "琴弓摩擦", "提琴中频"],
+    "target_instrument": "string",
+    "acoustic_description": "弦乐的演奏情感和表现力不够突出。",
+    "action": {
+      "frequency_range": [1000, 3000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 1~3dB (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "1k-3kHz 是弦乐表现力的核心区，提升可增强情感。"
+  },
+  {
+    "id": "string_air",
+    "intent": ["弦乐细腻度", "弦乐高频", "丝滑感"],
+    "target_instrument": "string",
+    "acoustic_description": "弦乐高频不够丝滑细腻。",
+    "action": {
+      "frequency_range": [8000, 12000],
+      "filter_type": "HighShelf",
+      "gain_advice": "适当提升 (Boost)",
+      "q_advice": "N/A"
+    },
+    "reasoning_hint": "8k-12kHz 提升可增加弦乐的高频细腻度与空气感。"
+  },
+
+
+  {
+    "id": "eguitar_cut",
+    "intent": ["电吉他切低", "电吉他杂音", "主音吉他低频"],
+    "target_instrument": "guitar",
+    "acoustic_description": "电吉他包含不必要的低频杂音。",
+    "action": {
+      "frequency_range": [100, 100],
+      "filter_type": "LowCut",
+      "gain_advice": "N/A",
+      "q_advice": "12dB/oct"
+    },
+    "reasoning_hint": "切除主音电吉他 100Hz 以下频率可有效减少杂音。"
+  },
+  {
+    "id": "eguitar_presence",
+    "intent": ["电吉他存在感", "主音力度", "吉他靠前"],
+    "target_instrument": "guitar",
+    "acoustic_description": "主音电吉他力度不够，存在感弱。",
+    "action": {
+      "frequency_range": [800, 2000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~5dB (Boost)",
+      "q_advice": "使用宽 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "800-2kHz 提升可大幅增强电吉他的力度和存在感。"
+  },
+  {
+    "id": "eguitar_pierce",
+    "intent": ["电吉他穿透力", "吉他solo高频", "突出吉他"],
+    "target_instrument": "guitar",
+    "acoustic_description": "吉他 Solo 在混音中穿透力不足。",
+    "action": {
+      "frequency_range": [2000, 3000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 3~5dB (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 1.2)"
+    },
+    "reasoning_hint": "2k-3kHz 提升能显著增加吉他 Solo 的混音穿透力。"
+  },
+  {
+    "id": "eguitar_harsh",
+    "intent": ["电吉他刺耳", "尖锐吉他", "刮耳吉他"],
+    "target_instrument": "guitar",
+    "acoustic_description": "电吉他高频部分过于尖锐刺耳。",
+    "action": {
+      "frequency_range": [3000, 5000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 2~4dB (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.0)"
+    },
+    "reasoning_hint": "衰减 3k-5kHz 能有效削减电吉他的尖锐感和刺耳感。"
+  },
+
+  {
+    "id": "aguitar_strum",
+    "intent": ["原声吉他扫弦", "木吉他厚度", "吉他共鸣"],
+    "target_instrument": "guitar",
+    "acoustic_description": "木吉他扫弦显得单薄，缺乏低频共鸣。",
+    "action": {
+      "frequency_range": [80, 150],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 3dB (Boost)",
+      "q_advice": "使用宽 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "80-150Hz 提升可增加木吉他低频共鸣，提升扫弦厚度。"
+  },
+  {
+    "id": "aguitar_boxy",
+    "intent": ["木吉他嗡嗡声", "原声吉他箱体", "木吉他发闷"],
+    "target_instrument": "guitar",
+    "acoustic_description": "原声吉他箱体共鸣过大，产生嗡嗡声。",
+    "action": {
+      "frequency_range": [200, 400],
+      "filter_type": "Peaking",
+      "gain_advice": "适当削减 (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.0)"
+    },
+    "reasoning_hint": "200-400Hz 削减可弱化木吉他箱体共鸣，减少嗡嗡声。"
+  },
+  {
+    "id": "aguitar_pluck",
+    "intent": ["木吉他拨弦", "原声吉他清晰度", "分解和弦"],
+    "target_instrument": "guitar",
+    "acoustic_description": "木吉他的分解拨弦细节不够清晰。",
+    "action": {
+      "frequency_range": [2000, 4000],
+      "filter_type": "Peaking",
+      "gain_advice": "适当提升 (Boost)",
+      "q_advice": "使用宽 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "2k-4kHz 提升可突出原声吉他的清晰度和拨弦细节。"
+  },
+
+  {
+    "id": "distguitar_cut",
+    "intent": ["失真吉他切低", "重金属低频", "失真杂音"],
+    "target_instrument": "guitar",
+    "acoustic_description": "失真电吉他低频部分非常浑浊且无用。",
+    "action": {
+      "frequency_range": [100, 100],
+      "filter_type": "LowCut",
+      "gain_advice": "N/A",
+      "q_advice": "12dB/oct"
+    },
+    "reasoning_hint": "切除 100Hz 以下频率可去除失真吉他非必要的极低频。"
+  },
+  {
+    "id": "distguitar_power",
+    "intent": ["失真力量感", "重金属厚度", "吉他下盘"],
+    "target_instrument": "guitar",
+    "acoustic_description": "失真电吉他缺乏重型的力量感。",
+    "action": {
+      "frequency_range": [200, 200],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.5)"
+    },
+    "reasoning_hint": "200Hz 频段提升能显著增强失真吉他的力量感。"
+  },
+  {
+    "id": "distguitar_res",
+    "intent": ["失真谐振", "吉他轰鸣", "闷音"],
+    "target_instrument": "guitar",
+    "acoustic_description": "失真吉他带有讨厌的低中频谐振轰鸣。",
+    "action": {
+      "frequency_range": [500, 500],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用偏窄 Q 值 (约 2.0 - 3.0)"
+    },
+    "reasoning_hint": "500Hz 左右衰减可抑制失真吉他的浑浊谐振。"
+  },
+  {
+    "id": "distguitar_clear",
+    "intent": ["失真清晰度", "吉他发闷", "失真闷"],
+    "target_instrument": "guitar",
+    "acoustic_description": "失真吉他听起来像一团浆糊，不清晰。",
+    "action": {
+      "frequency_range": [1200, 1200],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 (Cut)",
+      "q_advice": "使用较宽 Q 值 (约 1.5)"
+    },
+    "reasoning_hint": "1200Hz 左右衰减可以为失真吉他带来清晰的听感。"
+  },
+  {
+    "id": "distguitar_high",
+    "intent": ["失真高音", "吉他高频", "失真明亮"],
+    "target_instrument": "guitar",
+    "acoustic_description": "失真吉他缺乏高音的表现力。",
+    "action": {
+      "frequency_range": [3000, 5000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 (Boost)",
+      "q_advice": "使用较宽 Q 值 (约 1.0)"
+    },
+    "reasoning_hint": "3000Hz 以上提升可获得失真吉他的高音感及高频优点。"
+  },
+  {
+    "id": "distguitar_hicut",
+    "intent": ["失真高切", "失真太亮", "吉他毛刺", "失真刺耳"],
+    "target_instrument": "guitar",
+    "acoustic_description": "失真吉他高频嘶嘶声和电流声太刺耳。",
+    "action": {
+      "frequency_range": [8000, 8000],
+      "filter_type": "HighCut",
+      "gain_advice": "N/A",
+      "q_advice": "12dB/oct 或 24dB/oct"
+    },
+    "reasoning_hint": "使用 HighCut 切除 8000Hz 以上频率，可避免失真吉他高频刺耳音。"
+  }
+]

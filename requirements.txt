@@ -1,0 +1,4 @@
+pydantic>=2.0.0
+requests
+python-dotenv
+colorama  # 用于在控制台打印彩色日志，方便调试
