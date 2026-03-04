@@ -1,14 +1,15 @@
-from typing import Dict, Any, List, Optional
-import re
+from typing import Dict, Any, List
 from app.services.state_manager import StateManager
 from app.core.llm_client import DeepSeekClient
 from app.services.rag_engine import RagEngine
+from app.core.router_agent import RouterAgent
 
 class MCPHandler:
     def __init__(self, rag_engine: RagEngine = None):
         print("🛠️ [MCP] 正在初始化各个组件...")
         self.llm = DeepSeekClient()
         self.rag = rag_engine if rag_engine else RagEngine()
+        self.router = RouterAgent()
         self.state_manager = StateManager(max_history=5)
         print("🧠 [MCP] 状态记忆已就绪")
 
@@ -47,13 +48,19 @@ class MCPHandler:
         if method == "chat/send":
             user_text = request["params"].get("content", "")
             
-            # 1. RAG 检索
-            print(f"🔍 [RAG] 正在检索: {user_text}")
-            rag_context = self.rag.search(user_text)
+            # 1-1. 极速意图拆解 (将大白话转为专业乐器标签与听感词)
+            print(f"⚡ [Agentic] 阶段一：正在进行意图光速拆解...")
+            intent_data = self.router.analyze_intent(user_text)
 
-            # 2. 获取记忆上下文 (包含当前影子状态、对话历史、以及操作焦点)
-            # 这里的 memory_context 已经包含了 "用户刚刚操作了 Band X" 的提示信息
+            # 1-2. 精准知识检索 (利用提纯后的关键词去数据库拿干货)
+            print(f"🔍 [Agentic] 阶段二：正在根据意图进行定向 RAG 检索...")
+            # 👉 注意：这里调用的是刚刚加进 RagEngine 的新方法！
+            rag_context = self.rag.search(intent_data)
+
+            # 2. 获取记忆上下文
             memory_context = self.state_manager.get_context_prompt()
+
+            print(f"🤖 [Agentic] 阶段三：知识注入完毕，正在呼叫主厨大模型生成最终 EQ 动作...")
             
             # 3. LLM 生成
             # 我们完全信任 LLM 能根据 memory_context 中的提示，正确理解“这个”、“那个”指代的是谁

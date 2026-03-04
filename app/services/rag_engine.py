@@ -98,62 +98,37 @@ class RagEngine:
         )
         print(f"[RAG ✅] 成功入库并持久化 {len(documents)} 条结构化知识！")
 
-    def _detect_instrument(self, text: str) -> list:
+    def search(self, intent_data: dict, n_results: int = 4, distance_threshold: float = 1.25) -> str:
         """
-        轻量级意图路由：根据用户输入提取乐器实体。
-        自动兼容通用规则 (general) 和非贝斯规则 (non_bass)。
-        【架构升级】：支持多乐器并发检测 (Multi-Intent Detection)
+        [Agentic RAG 核心检索]：接收 Router 分析出的结构化数据，进行提纯定向检索
+        :param intent_data: 包含 'instruments' 列表和 'keywords' 列表的字典
+        :param distance_threshold: L2 距离阈值。放宽到 1.25 以适应提纯后的高密度特征词
+        :return: 拼接好的强约束力 Context 文本
         """
-        text_lower = text.lower()
-        # 默认始终包含通用混音法则
-        target = ["general"]
+        # 1. 解析 LLM 给出的字典
+        instruments = intent_data.get("instruments", ["general"])
+        # 始终混入 general，确保通用混音法则永远能被搜到 (平替了原先的硬编码兼容逻辑)
+        if "general" not in instruments:
+            instruments.append("general")
+            
+        keywords = intent_data.get("keywords", [])
+        # 兜底：如果 Router 没提取出 keywords，把 instruments 当作关键词
+        if not keywords:
+             keywords = instruments
+             
+        # 2. 【核心架构点：高密度文本拼接】将提取出的精确特征词组合，去除废话
+        query_text = " ".join(keywords)
+        print(f"🔍 [RagEngine] Agentic 提纯词组: '{query_text}' -> 搜索范围 (硬过滤): {instruments}")
         
-        # 智能兼容：只要用户没提贝斯，就允许触发 "non_bass" (低频清理) 规则
-        if not any(word in text_lower for word in ["贝斯", "bass", "808"]):
-            target.append("non_bass")
-            
-        # 具体的乐器实体探测 (改用独立 if，支持一句话包含多个乐器)
-        if any(word in text_lower for word in ["人声", "唱", "vocal", "男声", "女声", "齿音", "鼻音"]):
-            target.append("vocal")
-            
-        if any(word in text_lower for word in ["鼓", "kick", "drum", "底鼓", "军鼓", "打击乐"]):
-            target.append("drum")
-            
-        if any(word in text_lower for word in ["吉他", "guitar", "木吉他", "电吉他"]):
-            target.append("guitar")
-            
-        if any(word in text_lower for word in ["贝斯", "bass"]):
-            target.append("bass")
-            
-        if any(word in text_lower for word in ["钢琴", "piano", "键盘", "keyboard", "电钢"]):
-            target.append("piano")
-            
-        if any(word in text_lower for word in ["弦乐", "string", "提琴", "小提琴", "大提琴", "cello", "violin"]):
-            target.append("string")
-            
-        return target
-
-
-    def search(self, query: str, n_results: int = 3, distance_threshold: float = 1) -> str:
-        """
-        根据用户查询检索相关知识
-        :param distance_threshold: L2 距离阈值。默认 1。
-                                  越小要求越严格 (0表示完全一样)，大于此距离的将被过滤掉！
-        :return: 拼接好的上下文文本
-        """
-        # 1. 将用户问题向量化
-        query_embedding = self.embed_model.encode([query]).tolist()
+        # 3. 向量化提纯后的关键词组
+        query_embedding = self.embed_model.encode([query_text]).tolist()
         
-        # 2. 【新增架构】意图路由：提取用户想要处理的乐器分类
-        target_instruments = self._detect_instrument(query)
-        print(f"🎛️ [RAG Router] 锁定目标乐器分类: {target_instruments}")
-        
-        # 3. 在数据库中搜索最近邻 (增加 Metadata Routing 过滤)
+        # 4. 执行绝对分类过滤与 L2 检索
         results = self.collection.query(
             query_embeddings=query_embedding,
             n_results=n_results,
-            where={"instrument": {"$in": target_instruments}}, # 👈 【新增】：只在匹配的分类中搜索！
-            include=["documents", "distances", "metadatas"] # 👈 把 metadatas 也拿出来
+            where={"instrument": {"$in": instruments}}, # 👈 仅在 Router 指定的乐器分类中检索
+            include=["documents", "distances", "metadatas"]
         )
         
         if not results['documents'] or not results['documents'][0]:
@@ -161,16 +136,14 @@ class RagEngine:
             
         retrieved_docs = results['documents'][0]
         distances = results['distances'][0]
-        retrieved_metas = results['metadatas'][0] # 提取元数据列表
+        retrieved_metas = results['metadatas'][0] 
         
-        valid_contexts = [] # 用于存放组装好的结构化上下文
+        valid_contexts = [] 
         
-        # 4. 核心逻辑：阈值过滤 (Semantic Thresholding)
-        print(f"🔬 [RAG 诊断] 分析查询: '{query}'")
+        print(f"🔬 [RAG 诊断] 开始匹配空间距离...")
+        # 5. 核心逻辑：阈值过滤 (Semantic Thresholding)
         for doc, dist, meta in zip(retrieved_docs, distances, retrieved_metas):
-            # 距离小于等于阈值，说明足够相似，保留
             if dist <= distance_threshold:
-                # 将触发的元数据提取出来，转换为绝对精准的操作指导
                 action_json = meta["action_payload"]
                 hint = meta["reasoning_hint"]
                 instrument = meta["instrument"]
@@ -182,19 +155,13 @@ class RagEngine:
                     f"  建议操作参数 (请严格参考此 JSON 范围生成工具调用): {action_json}"
                 )
                 valid_contexts.append(structured_context)
-                
-                # 保留你原本优秀的诊断打印逻辑，稍微截断一下长文档
-                print(f"  ✅ [命中] 距离: {dist:.3f} | 匹配意图: {doc[:30]}...")
-            # 距离大于阈值，说明是在“强行凑数”，抛弃
+                print(f"  ✅ [命中] 距离: {dist:.3f} | 匹配依据: {hint}")
             else:
-                print(f"  🛑 [拦截] 距离: {dist:.3f} | 匹配意图: {doc[:30]}... (无关内容已舍弃)")
-        
-        # 5. 如果所有结果都被拦截了，说明用户只说了“开启动态”这类无实质混音语义的话
+                print(f"  🛑 [拦截] 距离: {dist:.3f} | 匹配意图过远已舍弃")
+
         if not valid_contexts:
-            print("🚫 [RAG] 所有检索结果均低于阈值，已彻底阻断知识库对 LLM 的干扰。")
+            print("🚫 [RAG] 未找到低于阈值的匹配项，已彻底阻断知识库对 LLM 的干扰。")
             return ""
             
-        # 6. 格式化返回结果
-        # 返回的是拥有高度约束力的结构化上下文，极大降低 LLM 幻觉
-        context_str = "### 领域专家知识指导 ###\n" + "\n---\n".join(valid_contexts) + "\n#########################"
-        return context_str
+        # 6. 格式化返回结果，形成对 Action LLM 的绝对指导
+        return "### 领域专家知识指导 ###\n" + "\n---\n".join(valid_contexts) + "\n#########################"

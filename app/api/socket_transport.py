@@ -1,6 +1,5 @@
 import asyncio
 import json
-import socket
 from app.mcp_protocol.server import MCPHandler
 
 class SocketServer:

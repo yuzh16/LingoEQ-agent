@@ -1,5 +1,4 @@
 import asyncio
-import os
 import colorama
 from app.api.socket_transport import SocketServer
 from app.services.rag_engine import RagEngine # [新增] 用于预加载数据
