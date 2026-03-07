@@ -98,7 +98,7 @@ class RagEngine:
         )
         print(f"[RAG ✅] 成功入库并持久化 {len(documents)} 条结构化知识！")
 
-    def search(self, intent_data: dict, n_results: int = 4, distance_threshold: float = 1.25) -> str:
+    def search(self, intent_data: dict, n_results: int = 5, distance_threshold: float = 1.25) -> str:
         """
         [Agentic RAG 核心检索]：接收 Router 分析出的结构化数据，进行提纯定向检索
         :param intent_data: 包含 'instruments' 列表和 'keywords' 列表的字典

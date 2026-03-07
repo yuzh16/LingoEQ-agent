@@ -10,55 +10,26 @@ LINGO_TOOLS = [
         "type": "function",
         "function": {
             "name": "adjust_eq_band",
-            "description": "Adjust parameters for a specific EQ band filter. Use this to fix tonal issues (e.g., 'muddy bass', 'harsh highs').",
+            "description": "调整 EQ 特定频段的参数。解决听感问题（如'低频浑浊'、'高频刺耳'）。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "band_index": {
-                        "type": "integer",
-                        "description": "The band number (0-23). 0-2: Sub-bass, 3-6: Bass, 7-15: Mids, 16-23: Highs.",
-                        "minimum": 0,
-                        "maximum": 23
+                    "band_index": { "type": "integer", "description": "频段序号 (0-23)。" },
+                    "freq": { "type": "number", "description": "中心频率 Hz (20.0 - 20000.0)。" },
+                    "gain": { "type": "number", "description": "增益 dB (-24.0 到 +24.0)。正数为提升，负数为衰减。" },
+                    "q": { "type": "number", "description": "Q值 (带宽)。0.1 (宽) 到 10.0 (窄)。" },
+                    "filter_type": { 
+                        "type": "string", 
+                        "enum": ["LowCut", "HighCut", "Peaking", "LowShelf", "HighShelf"],
+                        "description": "滤波器类型。"
                     },
-                    "freq": {
-                        "type": "number",
-                        "description": "Center frequency in Hz (20.0 - 20000.0)."
-                    },
-                    "gain": {
-                        "type": "number",
-                        "description": "Gain in dB (-24.0 to +24.0). Positive to Boost, Negative to Cut."
-                    },
-                    "q": {
-                        "type": "number",
-                        "description": "Q factor (Bandwidth). 0.1 (Wide) to 10.0 (Narrow/Surgical)."
-                    },
-                    "filter_type": {
-                        "type": "string",
-                        "description": "The shape/type of the filter. Use 'Peaking' for general tone shaping, 'LowCut'/'HighCut' to remove rumbling/hissing.",
-                        "enum": ["LowCut", "HighCut", "Peaking", "LowShelf", "HighShelf"] 
-                    },
-                    "enabled": {
-                        "type": "boolean",
-                        "description": "Enable or disable this band."
-                    },
-                    "dynamic_enabled": {
-                        "type": "boolean",
-                        "description": "Set to true to enable Dynamic EQ mode (compress/expand based on input level)."
-                    },
-                    "threshold": {
-                        "type": "number",
-                        "description": "Dynamic threshold in dB (-60.0 to 0.0). When signal exceeds this, gain is applied dynamically."
-                    },
-                    "attack": {
-                        "type": "number",
-                        "description": "Attack time in ms (0.1 to 100.0). How fast the dynamic EQ reacts."
-                    },
-                    "release": {
-                        "type": "number",
-                        "description": "Release time in ms (10.0 to 2000.0). How fast it returns to normal."
-                    }
+                    "enabled": { "type": "boolean", "description": "启用/禁用。" },
+                    "dynamic_enabled": { "type": "boolean", "description": "是否启用动态 EQ 模式。" },
+                    "threshold": { "type": "number", "description": "动态阈值 dB (-60.0 到 0.0)。" },
+                    "attack": { "type": "number", "description": "启动时间 ms。" },
+                    "release": { "type": "number", "description": "释放时间 ms。" }
                 },
-                "required": ["band_index"]
+                "required": ["band_index", "freq", "gain", "q", "filter_type", "enabled"]
             }
         }
     },
@@ -66,19 +37,47 @@ LINGO_TOOLS = [
         "type": "function",
         "function": {
             "name": "set_global_control",
-            "description": "Control global output settings.",
+            "description": "控制全局输出增益或旁通。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "output_gain": {
-                        "type": "number",
-                        "description": "Master Output Gain in dB."
-                    },
-                    "bypass": {
-                        "type": "boolean",
-                        "description": "Global Bypass."
-                    }
+                    "output_gain": { "type": "number", "description": "总输出增益 dB。" },
+                    "bypass": { "type": "boolean", "description": "全局旁通开关。" }
                 }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_eq_preset",
+            "description": "【记忆操作】将当前 EQ 状态保存为预设。当用户说'保存当前音色'、'记住这个设置'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "preset_name": {
+                        "type": "string",
+                        "description": "预设名称。例如：'温暖人声', '我的摇滚贝斯'。"
+                    }
+                },
+                "required": ["preset_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "load_eq_preset",
+            "description": "【记忆操作】加载已保存的预设。当用户说'加载那个温暖人声'、'用之前的设置'时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "preset_name": {
+                        "type": "string",
+                        "description": "要查询的预设名称关键词。"
+                    }
+                },
+                "required": ["preset_name"]
             }
         }
     }
