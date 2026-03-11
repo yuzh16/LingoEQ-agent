@@ -1,0 +1,32 @@
+{
+  "name": "Pop Bright",
+  "category": "Vocals",
+  "description": "现代流行人声处理，提升高频空气感，去除低频浑浊。",
+  "tags": ["Bright", "Clean", "Modern", "Air"],
+  "bands": [
+    {
+      "band_index": 0,
+      "freq": 100.0,
+      "gain": 0.0,
+      "q": 0.7,
+      "filter_type": "LowCut",
+      "enabled": true
+    },
+    {
+      "band_index": 3,
+      "freq": 350.0,
+      "gain": -2.5,
+      "q": 1.0,
+      "filter_type": "Peaking",
+      "enabled": true
+    },
+    {
+      "band_index": 18,
+      "freq": 10000.0,
+      "gain": 4.0,
+      "q": 0.7,
+      "filter_type": "HighShelf",
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "Stereo Widen",
+  "category": "Mastering",
+  "description": "通过提升两端延伸(Air & Sub)来增加听感宽度，使混音听起来更立体、更昂贵。",
+  "tags": ["Width", "Stereo", "Expensive", "Enhance"],
+  "bands": [
+    {
+        "band_index": 1,
+        "freq": 60.0,
+        "gain": 1.5,
+        "q": 0.5,
+        "filter_type": "LowShelf",
+        "enabled": true
+    },
+    {
+        "band_index": 8,
+        "freq": 500.0,
+        "gain": -1.0,
+        "q": 0.5,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 21,
+        "freq": 14000.0,
+        "gain": 2.5,
+        "q": 0.5,
+        "filter_type": "HighShelf",
+        "enabled": true
+    }
+  ]
+}

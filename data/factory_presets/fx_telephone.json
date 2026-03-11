@@ -1,0 +1,32 @@
+{
+  "name": "Telephone",
+  "category": "Creative",
+  "description": "经典的电话/窄频带效果，切除所有低频和高频。",
+  "tags": ["Lo-Fi", "Effect", "Narrow"],
+  "bands": [
+    {
+        "band_index": 0,
+        "freq": 400.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "LowCut",
+        "enabled": true
+    },
+    {
+        "band_index": 23,
+        "freq": 3500.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "HighCut",
+        "enabled": true
+    },
+    {
+        "band_index": 10,
+        "freq": 1500.0,
+        "gain": 6.0,
+        "q": 2.0,
+        "filter_type": "Peaking",
+        "enabled": true
+    }
+  ]
+}

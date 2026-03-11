@@ -1,0 +1,40 @@
+{
+  "name": "Modern Punch",
+  "category": "Drums",
+  "description": "适用于 EDM 和流行乐的紧致底鼓，强调低频冲击力和高频打击感，去除中频浑浊。",
+  "tags": ["Punchy", "Clean", "EDM", "Pop"],
+  "bands": [
+    {
+        "band_index": 0,
+        "freq": 60.0,
+        "gain": 4.0,
+        "q": 1.4,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 1,
+        "freq": 300.0,
+        "gain": -6.0,
+        "q": 1.0,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 2,
+        "freq": 4500.0,
+        "gain": 3.0,
+        "q": 0.7,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 3,
+        "freq": 30.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "LowCut",
+        "enabled": true
+    }
+  ]
+}

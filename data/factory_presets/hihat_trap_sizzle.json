@@ -1,0 +1,29 @@
+{
+    "name": "Trap Sizzle",
+    "category": "Drums",
+    "description": "极度锐利的高频提升，切除所有中低频，专为 Trap/Hip-Hop 的滚奏踩镲设计。",
+    "tags": [
+        "Sharp",
+        "Trap",
+        "Bright",
+        "Thin"
+    ],
+    "bands": [
+        {
+            "band_index": 0,
+            "freq": 500.0,
+            "gain": 0.0,
+            "q": 1.0,
+            "filter_type": "LowCut",
+            "enabled": true
+        },
+        {
+            "band_index": 22,
+            "freq": 12000.0,
+            "gain": 6.0,
+            "q": 0.7,
+            "filter_type": "HighShelf",
+            "enabled": true
+        }
+    ]
+}

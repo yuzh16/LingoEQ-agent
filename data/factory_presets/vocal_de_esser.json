@@ -1,0 +1,28 @@
+{
+  "name": "De-esser",
+  "category": "Vocals",
+  "description": "针对刺耳齿音的动态处理。仅在齿音出现时衰减 7-9kHz，不影响人声整体亮度。",
+  "tags": ["Dynamic", "Repair", "Smooth"],
+  "bands": [
+    {
+        "band_index": 18,
+        "freq": 8000.0,
+        "gain": 0.0,
+        "q": 2.0,
+        "filter_type": "Peaking",
+        "enabled": true,
+        "dynamic_enabled": true,
+        "threshold": -24.0,
+        "attack": 5.0,
+        "release": 40.0
+    },
+    {
+        "band_index": 0,
+        "freq": 90.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "LowCut",
+        "enabled": true
+    }
+  ]
+}

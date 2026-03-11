@@ -1,0 +1,40 @@
+{
+  "name": "Cinematic Warmth",
+  "category": "Strings",
+  "description": "消除弦乐的高频摩擦声，增加低频厚度和整体温暖感，打造电影配乐质感。",
+  "tags": ["Warm", "Lush", "Orchestral", "Smooth"],
+  "bands": [
+    {
+        "band_index": 0,
+        "freq": 60.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "LowCut",
+        "enabled": true
+    },
+    {
+        "band_index": 3,
+        "freq": 200.0,
+        "gain": 2.5,
+        "q": 0.7,
+        "filter_type": "LowShelf",
+        "enabled": true
+    },
+    {
+        "band_index": 13,
+        "freq": 3000.0,
+        "gain": -3.0,
+        "q": 1.5,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 21,
+        "freq": 10000.0,
+        "gain": 1.5,
+        "q": 0.7,
+        "filter_type": "HighShelf",
+        "enabled": true
+    }
+  ]
+}

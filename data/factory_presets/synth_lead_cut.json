@@ -1,0 +1,32 @@
+{
+  "name": "Lead Cut",
+  "category": "Synth",
+  "description": "在人声频率区域(1-3kHz)进行衰减，为歌声腾出空间，防止合成器抢戏。",
+  "tags": ["Space", "Comping", "Mix", "Support"],
+  "bands": [
+    {
+        "band_index": 0,
+        "freq": 120.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "LowCut",
+        "enabled": true
+    },
+    {
+        "band_index": 12,
+        "freq": 2000.0,
+        "gain": -4.0,
+        "q": 1.5,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 23,
+        "freq": 10000.0,
+        "gain": 2.0,
+        "q": 0.7,
+        "filter_type": "HighShelf",
+        "enabled": true
+    }
+  ]
+}

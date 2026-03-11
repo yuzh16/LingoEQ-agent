@@ -1,0 +1,32 @@
+{
+  "name": "Acoustic Clean",
+  "category": "Guitar",
+  "description": "去除原声吉他的箱体共鸣(Boominess)，提升高频空气感，让扫弦更清脆。",
+  "tags": ["Strum", "Bright", "Natural", "Folk"],
+  "bands": [
+        {
+            "band_index": 0,
+            "freq": 80.0,
+            "gain": 0.0,
+            "q": 0.7,
+            "filter_type": "LowCut",
+            "enabled": true
+        },
+        {
+            "band_index": 4,
+            "freq": 200.0,
+            "gain": -5.0,
+            "q": 2.0,
+            "filter_type": "Peaking",
+            "enabled": true
+        },
+        {
+            "band_index": 15,
+            "freq": 6000.0,
+            "gain": 3.0,
+            "q": 0.7,
+            "filter_type": "HighShelf",
+            "enabled": true
+        }
+  ]
+}

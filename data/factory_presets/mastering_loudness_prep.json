@@ -1,0 +1,24 @@
+{
+  "name": "Loudness Prep",
+  "category": "Mastering",
+  "description": "母带处理第一步。切除不可闻的次低频(30Hz)以节省动态余量(Headroom)，为后续限制器做准备。",
+  "tags": ["Technical", "Clean", "Loudness", "Utility"],
+  "bands": [
+    {
+        "band_index": 0,
+        "freq": 30.0,
+        "gain": 0.0,
+        "q": 1.5,
+        "filter_type": "LowCut",
+        "enabled": true
+    },
+    {
+        "band_index": 4,
+        "freq": 200.0,
+        "gain": -1.5,
+        "q": 0.7,
+        "filter_type": "Peaking",
+        "enabled": true
+    }
+]
+}

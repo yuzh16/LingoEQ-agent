@@ -1,0 +1,40 @@
+{
+  "name": "Gentle Polish",
+  "category": "Mastering",
+  "description": "适用于总线(Master Bus)的微妙处理，略微提升两端延伸，增加通透度和深度。",
+  "tags": ["Bus", "Final", "Subtle", "Smile Curve"],
+  "bands": [
+    {
+        "band_index": 0,
+        "freq": 30.0,
+        "gain": 0.0,
+        "q": 1.0,
+        "filter_type": "LowCut",
+        "enabled": true
+    },
+    {
+        "band_index": 2,
+        "freq": 80.0,
+        "gain": 1.0,
+        "q": 0.5,
+        "filter_type": "LowShelf",
+        "enabled": true
+    },
+    {
+        "band_index": 6,
+        "freq": 400.0,
+        "gain": -1.0,
+        "q": 0.5,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 20,
+        "freq": 12000.0,
+        "gain": 1.5,
+        "q": 0.5,
+        "filter_type": "HighShelf",
+        "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "Sub Focus",
+  "category": "Bass",
+  "description": "强化贝斯的超低频能量(60-80Hz)，同时切除中低频浑浊，适用于 EDM 和 Hip-Hop。",
+  "tags": ["Sub", "Deep", "Clean", "EDM"],
+  "bands": [
+    {
+        "band_index": 0,
+        "freq": 40.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "LowCut",
+        "enabled": true
+    },
+    {
+        "band_index": 2,
+        "freq": 70.0,
+        "gain": 4.0,
+        "q": 1.0,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 5,
+        "freq": 250.0,
+        "gain": -3.5,
+        "q": 1.2,
+        "filter_type": "Peaking",
+        "enabled": true
+    },
+    {
+        "band_index": 23,
+        "freq": 5000.0,
+        "gain": 0.0,
+        "q": 0.7,
+        "filter_type": "HighCut",
+        "enabled": true
+    }
+  ]
+}
