@@ -29,21 +29,26 @@ class ContextManager:
         self.sensory = sensory_manager
         print("📦 [ContextManager] 资源管理器已就绪")
 
-    def collect_resources(self, user_input: str) -> Dict[str, Any]:
+    def collect_resources(self, user_input: str, skip_rag: bool = False) -> Dict[str, Any]:
         """
         核心方法：收集所有上下文资源
+        :param user_input: 用户输入的文本（或闭环验证时的系统诊断报告）
+        :param skip_rag: 是否跳过意图分析和知识检索（用于闭环二次唤醒）
         """
-        print(f"📦 [ContextManager] 正在聚合上下文资源...")
+        print(f"📦 [ContextManager] 正在聚合上下文资源... (skip_rag={skip_rag})")
 
-        # 1. 意图分析 (Router)
-        # 必须先执行，因为 RAG 依赖意图数据
-        print(f"⚡ [ContextManager] 正在请求意图分析...")
-        intent_data = self.router.analyze_intent(user_input)
-
-        # 2. 知识检索 (RAG)
-        # 将结构化的 intent 传给 RAG 引擎
-        print(f"🔍 [ContextManager] 正在检索混音知识...")
-        rag_content = self.rag.search(intent_data)
+        # 1 & 2. 意图分析与知识检索 (Router & RAG)
+        if not skip_rag:
+            print(f"⚡ [ContextManager] 正在请求意图分析...")
+            intent_data = self.router.analyze_intent(user_input)
+            
+            print(f"🔍 [ContextManager] 正在检索混音知识...")
+            rag_content = self.rag.search(intent_data)
+        else:
+            print(f"⚡ [ContextManager] 闭环验证模式：跳过 Router 与 RAG 检索。")
+            # 伪造一个意图，告诉 PromptEngineer 当前处于验证阶段
+            intent_data = {"intent": "reflexion_verification", "description": "闭环验证阶段，专注于听觉反馈对比"}
+            rag_content = "当前处于闭环听觉验证阶段，以物理对比数据为准，无需额外理论知识。"
 
         # 3. 状态快照 (Shadow State)
         # 获取当前 EQ 参数、最近手动操作记录、对话历史
@@ -58,6 +63,7 @@ class ContextManager:
         tool_definitions = get_tools_prompt()
 
         # 6. 音频感知数据 (Sensory Data)
+        # 依然获取前台 0~4 槽位的参考数据（供 LLM 保持全局参考）
         sensory_content = self.sensory.get_sensory_data()
 
         # 7. 打包资源

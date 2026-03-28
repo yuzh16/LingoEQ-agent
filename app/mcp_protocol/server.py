@@ -41,6 +41,11 @@ class MCPHandler:
         )
         self.prompt_engineer = PromptEngineer()
         self.llm = DeepSeekClient()
+
+        # [新增] 闭环验证深度控制 (防止死循环)
+        self.MAX_REFLEXION_DEPTH = 2  # 允许 AI 自我纠错的最大次数
+        self.current_reflexion_depth = 0
+        self.is_auto_check_enabled = True  # 👉 【新增】记录当前是否开启了自检模式
         
         print("🧠 [MCP] 架构重构完成：Dispatcher 已就绪")
 
@@ -73,6 +78,12 @@ class MCPHandler:
         if method == "chat/send":
             user_text = request["params"].get("content", "")
             
+            # 👉 【新增】读取 C++ 传来的开关状态（默认为 True 防崩溃）
+            self.is_auto_check_enabled = params.get("auto_check", True)
+            print(f"🎛️ [UI 控制] 本次对话是否开启自检: {self.is_auto_check_enabled}")
+            # [新增] 用户发起新对话，重置验证深度
+            self.current_reflexion_depth = 0
+
             # === Pipeline Start ===
             
             # Step 1: 资源聚合 (Resource Layer)
@@ -123,28 +134,131 @@ class MCPHandler:
             return self._handle_sync(request, msg_id)
         
         # ----------------------------------------------------
-        # 场景 2.5: [新增] 接收音频感知快照 (C++ -> Python)
+        # 场景 2.5: [修改] 接收音频感知快照并存入指定槽位 (C++ -> Python)
         # ----------------------------------------------------
         elif method == "audio/snapshot_upload":
             params = request.get("params", {})
             frames = params.get("frames", [])
             frequencies = params.get("frequencies", [])
+            slot_index = params.get("slot_index")  # [新增] 提取槽位 ID
             
-            if frames and frequencies:
-                # 把数据扔给 SensoryManager 处理
-                self.sensory_manager.process_and_add_snapshot(frames, frequencies)
+            if frames and frequencies and slot_index is not None:
+                # 把数据和槽位 ID 一起扔给 SensoryManager 处理
+                self.sensory_manager.process_and_add_snapshot(frames, frequencies, slot_index)
                 return {
                     "jsonrpc": "2.0", 
                     "id": msg_id,
-                    "result": "snapshot_received"
-                    }
+                    "result": f"snapshot_received_in_slot_{slot_index}"
+                }
             else:
                 return {
                     "jsonrpc": "2.0", 
                     "id": msg_id,
-                    "error": {"code": -32602, "message": "Missing audio frames"}
-                    }
+                    "error": {"code": -32602, "message": "Missing audio frames or slot_index"}
+                }
+
+        # ----------------------------------------------------
+        # 场景 2.6: [新增] 精确删除音频感知快照 (C++ -> Python)
+        # ----------------------------------------------------
+        elif method == "audio/snapshot_delete":
+            params = request.get("params", {})
+            slot_index = params.get("slot_index")
             
+            if slot_index is not None:
+                self.sensory_manager.delete_snapshot(slot_index)
+                return {
+                    "jsonrpc": "2.0", 
+                    "id": msg_id,
+                    "result": f"snapshot_deleted_slot_{slot_index}"
+                }
+            else:
+                return {
+                    "jsonrpc": "2.0", 
+                    "id": msg_id,
+                    "error": {"code": -32602, "message": "Missing slot_index"}
+                }
+
+        # ----------------------------------------------------
+        # 场景 2.7: [新增] 接收影子录音机的 A/B 对比数据并触发 LLM 反思
+        # ----------------------------------------------------
+        elif method == "audio/reflexion_diff_upload":
+            params = request.get("params", {})
+            pre_frames = params.get("pre_frames", [])
+            post_frames = params.get("post_frames", [])
+            frequencies = params.get("frequencies", [])
+
+            if not pre_frames or not post_frames:
+                return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32602, "message": "Missing diff frames"}}
+
+            # 1. 深度计数器累加
+            self.current_reflexion_depth += 1
+            print(f"🧠 [MCP] 接收到闭环对比数据，正在唤醒 LLM 进行二次反思 (当前深度: {self.current_reflexion_depth}/{self.MAX_REFLEXION_DEPTH})...")
+
+            # 2. 调用感知层生成报告
+            diff_report = self.sensory_manager.process_reflexion_diff(pre_frames, post_frames, frequencies)
+
+            # 3. 【核心拦截】：如果达到最大深度，强制修改报告，下达“最终通牒”
+            if self.current_reflexion_depth >= self.MAX_REFLEXION_DEPTH:
+                diff_report += "\n\n【⚠️ 系统强制警告】你已经达到了最大闭环验证次数！" \
+                               "为了保护音频引擎，你现在被**绝对禁止**再次调用任何 adjust_eq 工具。 " \
+                               "你必须立刻向用户输出一段文本，总结你刚才尝试了哪些操作、目前的效果如何，并请用户手动听取或介入调整。"
+
+            # === 二次 Pipeline Start ===
+            context_data = self.context_manager.collect_resources(
+                user_input=diff_report, 
+                skip_rag=True  
+            )
+            messages = self.prompt_engineer.render_payload(context_data)
+            agent_response = self.llm.call_api(messages)
+            # === 二次 Pipeline End ===
+
+            if agent_response:
+                # 4. 【终极保险】：就算大模型叛逆了，我们也在物理层把它截断
+                if self.current_reflexion_depth >= self.MAX_REFLEXION_DEPTH and agent_response.tool_calls:
+                    print("🛡️ [Safety Net] LLM 试图违抗指令继续调用工具，系统已强制拦截。")
+                    agent_response.tool_calls = [] # 强行清空它的工具调用
+                    if not agent_response.reply_text:
+                        agent_response.reply_text = "我已经进行了多次闭环尝试，为了避免过度处理，我已停止自动调整。请您检查当前音色是否满意。"
+
+                # 5. 【核心路由】：根据是否合格，决定发给 C++ 气泡还是状态码
+                if agent_response.tool_calls:
+                    # 【情况 B：验证不合格，触发二段微调】
+                    print(f"🔄 [MCP] LLM 验收未通过，决定继续微调 ({len(agent_response.tool_calls)} tools)...")
+                    self.state_manager.update_from_tool_calls(agent_response.tool_calls)
+                    
+                    # 兜底：如果模型没说话，补一句简略说明
+                    if not agent_response.reply_text:
+                        agent_response.reply_text = "检查发现仍有频段冲突，已进行二次微调修正。"
+                        
+                    self.state_manager.add_history("【系统声学对比报告】已送达", agent_response.reply_text)
+                    content_list = self._build_response_content(agent_response)
+                else:
+                    # 【情况 A：验证合格，没有动工具】
+                    print("✅ [MCP] LLM 验收通过，物理状态完美。")
+                    self.state_manager.add_history("【系统声学对比报告】已送达", "闭环验证通过，无明显突刺。")
+                    
+                    # ⚠️ 关键：直接伪造一个隐藏的 status 信号，不生成任何聊天气泡
+                    content_list = [{
+                        "type": "status",
+                        "status_code": "success",
+                        "message": "自我检查合格"
+                    }]
+
+                return {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "result": {
+                        "role": "assistant",
+                        "content": content_list
+                    }
+                }
+            else:
+                return {
+                    "jsonrpc": "2.0", 
+                    "id": msg_id, 
+                    "error": {"code": -500, "message": "LLM 闭环反思失败"}
+                }
+
         # ----------------------------------------------------
         # 场景 3: 心跳 (Ping)
         # ----------------------------------------------------
@@ -164,9 +278,11 @@ class MCPHandler:
         包含工具执行的具体逻辑 (Sanitization, Batching 等)
         """
         content_list: List[Dict[str, Any]] = []
-
+        has_eq_action = any(t.tool_name in ["adjust_eq_band", "adjust_eq_batch"] for t in agent_response.tool_calls)
+       
         # Part A: 思维链
-        if agent_response.thought_process:
+        # 【修改】只有在首轮盲调时（深度为0），才展示 Thinking 气泡
+        if agent_response.thought_process and self.current_reflexion_depth == 0:
             content_list.append({
                 "type": "text",
                 "role": "thought",
@@ -175,12 +291,24 @@ class MCPHandler:
 
         # Part B: 回复文本
         if agent_response.reply_text:
+            # 👉 【修改】第一轮正常显示为 assistant，第二轮（自我修正）标记为 correction
+            role_type = "assistant" if self.current_reflexion_depth == 0 else "correction"
+            
             content_list.append({
                 "type": "text",
-                "role": "assistant",
+                "role": role_type,
                 "text": agent_response.reply_text
             })
 
+        # 告诉 C++ UI 该显示什么悬浮动画
+        if has_eq_action and getattr(self, 'is_auto_check_enabled', True):
+            msg = "⚙️ LingoEQ 自我检查中..." if self.current_reflexion_depth == 0 else "🔬 进行二段精调检查中..."
+            content_list.append({
+                "type": "status",
+                "status_code": "checking",
+                "message": msg
+            })
+            
         # Part C: 工具执行与参数清洗
         for tool in agent_response.tool_calls:
             
@@ -225,6 +353,9 @@ class MCPHandler:
                         idx = band_data.get("band_index", i)
                         band_data["band_index"] = idx
 
+                        # 👉 【新增这一行】：为了满足 Pydantic 的严格要求，补齐 index 字段
+                        band_data["index"] = idx
+
                         # 同步到影子状态
                         self.state_manager.bands[idx] = EQBand.model_validate(band_data)
                         
@@ -248,7 +379,7 @@ class MCPHandler:
                             "role": "assistant",
                             "text": status_msg
                         })
-
+                
         return content_list
 
     def _handle_sync(self, request, msg_id):
