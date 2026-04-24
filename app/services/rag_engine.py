@@ -4,27 +4,21 @@ import json # 【新增】导入 json 模块处理结构化数据
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 import chromadb
-from typing import List
 from sentence_transformers import SentenceTransformer
-from chromadb.config import Settings
+from config import settings
 
 class RagEngine:
-    def __init__(self, persist_directory: str = "data/vector_db"):
+    def __init__(self, persist_directory: str = settings.VECTOR_DB_DIR):
         """
         初始化 RAG 引擎
         :param persist_directory: 向量数据库的存储路径
         """
         print(f"[RAG] 正在初始化 RAG 引擎，存储路径: {persist_directory}...")
         
-        # 1. 初始化 Embedding 模型 (使用轻量级的 all-MiniLM-L6-v2)
-        self.embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.embed_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)  # 1. 初始化 Embedding 模型
+        self.chroma_client = chromadb.PersistentClient(path=persist_directory)  # 2. 初始化 ChromaDB 客户端
+        self.collection_name = settings.RAG_COLLECTION_NAME  # 3. 获取或创建集合 (Collection)
         
-        # 2. 初始化 ChromaDB 客户端
-        self.chroma_client = chromadb.PersistentClient(path=persist_directory)
-        
-        # 3. 获取或创建集合 (Collection)
-        # 【架构修改】更名为 mixing_knowledge_v2。既实现了版本隔离，又能在下面配合清空逻辑
-        self.collection_name = "mixing_knowledge_v2"
         self.collection = self.chroma_client.get_or_create_collection(
             name=self.collection_name,
             metadata={"hnsw:space": "l2"} # 【新增】显式声明 L2 距离，确保你的阈值逻辑精准运行
@@ -98,7 +92,9 @@ class RagEngine:
         )
         print(f"[RAG ✅] 成功入库并持久化 {len(documents)} 条结构化知识！")
 
-    def search(self, intent_data: dict, n_results: int = 5, distance_threshold: float = 1.125) -> str:
+    def search(self, intent_data: dict, 
+               n_results: int = settings.RAG_TOP_K, 
+               distance_threshold: float = settings.RAG_DISTANCE_THRESHOLD) -> str:
         """
         [Agentic RAG 核心检索]：接收 Router 分析出的结构化数据，进行提纯定向检索
         :param intent_data: 包含 'instruments' 列表和 'keywords' 列表的字典

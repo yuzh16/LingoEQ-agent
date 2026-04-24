@@ -5,11 +5,15 @@ import glob
 import chromadb
 from sentence_transformers import SentenceTransformer
 from app.services.state_manager import StateManager
+from config import settings
 
 class MemoryManager:
-    def __init__(self, persist_directory: str = "data/vector_db", factory_dir: str = "data/factory_presets"):
+    def __init__(self, 
+                 persist_directory: str = settings.VECTOR_DB_DIR, 
+                 factory_dir: str = settings.FACTORY_PRESETS_DIR):
         print(f"[Memory] 正在初始化预设与记忆管理器...")
-        self.embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        self.embed_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
         self.chroma_client = chromadb.PersistentClient(path=persist_directory)
         
         # 统一预设库集合
@@ -120,7 +124,7 @@ class MemoryManager:
         print(f"💾 [Memory] 用户预设【{preset_name}】已保存。")
         return f"好的！预设【{preset_name}】已保存。"
 
-    def load_preset(self, query_name: str, distance_threshold: float = 1.3): # 稍微放宽一点阈值
+    def load_preset(self, query_name: str, distance_threshold: float = settings.PRESET_DISTANCE_THRESHOLD):
         """语义检索并返回 JSON"""
         embedding = self.embed_model.encode([query_name]).tolist()
         

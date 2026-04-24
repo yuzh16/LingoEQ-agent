@@ -1,5 +1,6 @@
 import asyncio
 import colorama
+from config import settings
 from app.api.socket_transport import SocketServer
 from app.services.rag_engine import RagEngine # [新增] 用于预加载数据
 
@@ -10,7 +11,7 @@ def initialize_system():
     print("🚀 [System] 正在初始化 LingoEQ 系统组件...")
     try:
         rag = RagEngine()
-        rag.ingest_knowledge("data/knowledge_base/mixing_tips.json") 
+        rag.ingest_knowledge(settings.INITIAL_KNOWLEDGE_BASE) 
         return rag # 【关键】：必须返回这个已经装载知识的实例
     except Exception as e:
         print(f"❌ [Error] RAG 引擎初始化失败: {e}")

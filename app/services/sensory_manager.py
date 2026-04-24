@@ -2,6 +2,7 @@
 from datetime import datetime
 from typing import List, Dict
 import numpy as np
+from config import settings
 
 class SensoryManager:
     def __init__(self):
@@ -57,7 +58,7 @@ class SensoryManager:
         if not frames or not frequencies:
             return
 
-        if slot_index < -1 or slot_index >= 5:
+        if slot_index < -1 or slot_index >= settings.MAX_SENSORY_SLOTS:
             print(f"⚠️ [SensoryManager] 收到非法的槽位索引: {slot_index}")
             return
 
@@ -116,8 +117,8 @@ class SensoryManager:
                  valid_valleys.append({"freq": f, "energy": perceived_loudness_norm[i]})
 
         # 排序并截取 Top N
-        valid_peaks = sorted(valid_peaks, key=lambda x: x["energy"], reverse=True)[:3]
-        valid_valleys = sorted(valid_valleys, key=lambda x: x["energy"])[:2]
+        valid_peaks = sorted(valid_peaks, key=lambda x: x["energy"], reverse=True)[:settings.SENSORY_TOP_PEAKS]
+        valid_valleys = sorted(valid_valleys, key=lambda x: x["energy"])[:settings.SENSORY_TOP_VALLEYS]
 
         # 动态特征 (波峰因数 Crest Factor)
         # 物理瞬态不需要 A计权，直接用 max - avg

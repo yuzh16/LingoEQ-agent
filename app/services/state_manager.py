@@ -1,16 +1,14 @@
+import math
+import time
 from typing import List, Dict, Deque, Optional, Any
 from collections import deque
-import json
-import time
 from app.schemas.eq_protocol import EQBand, EQFactory, ToolCall
+from config import settings
 
 class StateManager:
     """
     状态管理器 (Shadow State)
-    职责：
-    1. 维护当前 EQ 的全量参数 (24个频段)。
-    2. 维护最近的对话历史。
-    3. 为 Prompt 提供上下文注入文本（包括操作焦点提示）。
+    集成 Neuro-Symbolic 架构：认知层引导 (Prompt) + 物理层护栏 (DSP logic)
     """
     def __init__(self, max_history: int = 5):
         # 1. 初始化 24 个频段的“影子状态”
@@ -18,173 +16,233 @@ class StateManager:
             i: EQFactory.create_default_band(i) for i in range(24)
         }
         
-        # 2. 上下文感知数据 (Context Awareness)
-        # 用于追踪“谁”在“什么时候”操作了“哪个频段”
+        # 2. 上下文感知数据
         self.last_llm_band_idx: Optional[int] = None
         self.last_llm_time: float = 0.0
-        
         self.last_manual_band_idx: Optional[int] = None
         self.last_manual_time: float = 0.0
         
-        # 3. 对话历史
+        # 3. 对话历史（用于 Prompt 注入）
         self.conversation_history: Deque[Dict[str, str]] = deque(maxlen=max_history)
 
-    def update_from_tool_calls(self, tool_calls: List[ToolCall]):
-        """
-        核心逻辑：根据 LLM 的工具调用，更新 Python 端的影子状态。
-        """
-        for tool in tool_calls:
-            if tool.tool_name == "adjust_eq_band":
-                params = tool.parameters
-                idx = params.get("band_index")
-                
-                if idx is not None and idx in self.bands:
-                    # 使用 by_alias=True 导出，确保 key 是 "freq"
-                    current_band_dict = self.bands[idx].model_dump(by_alias=True)
-                    current_band_dict.update(params)
-                    
-                    try:
-                        self.bands[idx] = EQBand.model_validate(current_band_dict)
-                        
-                        # ✅ 更新 LLM 操作记录
-                        self.last_llm_band_idx = idx
-                        self.last_llm_time = time.time()
+        # ==========================================
+        # 🛡️ 显式逻辑配置 (Guardrail Config)
+        # ==========================================
+        # 只要用户动过，该频段 ID 永久锁定，AI 不得直操
+        self.manual_touch_registry: Dict[int, bool] = {} 
+        
+        # 声学保护系数：保护范围覆盖带宽，提供平滑的干涉缓冲
+        self.SAFETY_MARGIN = settings.SAFETY_MARGIN       
 
-                        print(f"🔄 [State] Band {idx} Updated by AI")
-                    
-                    except Exception as e:
-                        print(f"❌ [State Error] Band {idx} update failed: {e}")
+    def _get_free_bands(self) -> List[int]:
+        """
+        获取当前未被占用的空闲频段列表。
+        判定标准：1. 未被用户手动操作过；2. 增益为0且为默认 Peaking 类型且未开启动态。
+        """
+        free_indices = []
+        for i in range(24):
+            # 如果 ID 在手动保护名单里，绝对不空闲
+            if i in self.manual_touch_registry:
+                continue
+            
+            band = self.bands[i]
+            # 检查该频段是否已有 AI 激活的操作
+            is_active = (abs(band.gain) > 0.1) or \
+                        (band.filter_type not in ["Peaking"]) or \
+                        (band.dynamic_enabled)
+            
+            if not is_active:
+                free_indices.append(i)
+                
+        return free_indices
+
+    def _calculate_gain_attenuation(self, llm_f: float, llm_q: float, hum_f: float, hum_q: float) -> float:
+        """
+        [核心算法] 基于重叠尺度的削减算法。
+        根据 DSP 滤波器带宽 (BW ≈ 1/Q) 计算两个频点的相互影响指数。
+        """
+        # 容错处理：确保频率和Q值在合法数学域
+        llm_f, hum_f = max(20.0, llm_f), max(20.0, hum_f)
+        llm_q, hum_q = max(0.1, llm_q), max(0.1, hum_q)
+
+        # 1. 计算两个频点的绝对距离（八度 Octave）
+        d_oct = abs(math.log2(llm_f / hum_f))
+        
+        # 2. 计算干涉临界阈值
+        # 滤波器的影响半径近似为带宽的一半：R = 1/(2Q)
+        r_llm = 1.0 / (2.0 * llm_q)
+        r_hum = 1.0 / (2.0 * hum_q)
+        threshold = (r_llm + r_hum) * self.SAFETY_MARGIN
+        
+        # 3. 计算保留比例
+        if d_oct >= threshold:
+            return 1.0  # 互不干扰，保留 100% Gain
+        
+        # 重叠率公式：距离越近，重叠率(0~1)越高
+        overlap_ratio = 1.0 - (d_oct / threshold)
+        
+        # 返回保留比例：重叠越多，保留越少。
+        # 例如完全同频时，overlap=1.0, retention=0.0 (增益被完全抹除)
+        return 1.0 - overlap_ratio
+    
+    # 在 StateManager.py 中
+    def _apply_safety_constraints(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """内部私有方法：执行物理底线钳位"""
+        # 定义物理极限 (可根据需要调准)
+        LIMITS = {
+            "gain": (settings.GAIN_LIMIT_MIN, settings.GAIN_LIMIT_MAX),
+            "freq": (settings.FREQ_LIMIT_MIN, settings.FREQ_LIMIT_MAX),
+            "frequency": (settings.FREQ_LIMIT_MIN, settings.FREQ_LIMIT_MAX),
+            "q": (settings.Q_LIMIT_MIN, settings.Q_LIMIT_MAX),
+            "q_factor": (settings.Q_LIMIT_MIN, settings.Q_LIMIT_MAX)
+        }
+    
+        for key, (min_val, max_val) in LIMITS.items():
+            if key in params:
+                raw_val = float(params[key])
+                clamped_val = max(min_val, min(max_val, raw_val))
+            if clamped_val != raw_val:
+                print(f"🛡️ [Physical Guardrail] {key}: {raw_val} -> {clamped_val}")
+                params[key] = clamped_val
+        return params
+
 
     def update_specific_param(self, band_idx: int, param_name: str, value: Any):
         """
-        反向同步专用：处理用户手动操作
+        同步层：当用户在宿主软件上手动调节时调用。
+        此操作会触发 ID 永久锁定。
         """
         if band_idx not in self.bands:
             return
 
         band = self.bands[band_idx]
         try:
-            # 参数映射与类型转换
-            if param_name in ["freq", "frequency"]:
-                band.frequency = float(value)
-            elif param_name in ["gain"]:
-                band.gain = float(value)
-            elif param_name in ["q", "q_factor"]:
-                band.q_factor = float(value)
-            elif param_name in ["type", "filter_type"]:
-                band.filter_type = str(value)
+            # 属性映射逻辑
+            if param_name in ["freq", "frequency"]: band.frequency = float(value)
+            elif param_name in ["gain"]: band.gain = float(value)
+            elif param_name in ["q", "q_factor"]: band.q_factor = float(value)
+            elif param_name in ["type", "filter_type"]: band.filter_type = str(value)
             elif param_name in ["bypass", "enabled"]:
                 val_bool = bool(float(value)) if isinstance(value, (int, float)) else bool(value)
-                if param_name == "bypass":
-                    band.enabled = not val_bool
-                else:
-                    band.enabled = val_bool
-            elif param_name in ["dynamic", "dynamic_enabled"]:
-                band.dynamic_enabled = bool(value)
-            elif param_name in ["threshold"]:
-                band.threshold = float(value)
-            elif param_name in ["attack"]:
-                band.attack = float(value)
-            elif param_name in ["release"]:
-                band.release = float(value)
-
-            # ✅ 更新手动操作记录
+                band.enabled = not val_bool if param_name == "bypass" else val_bool
+            elif param_name in ["dynamic", "dynamic_enabled"]: band.dynamic_enabled = bool(value)
+            
+            # ✅ 永久锁定该频段 ID
+            self.manual_touch_registry[band_idx] = True
             self.last_manual_band_idx = band_idx
             self.last_manual_time = time.time()
 
-            print(f"🔄 [Sync] Band {band_idx} {param_name} -> {value} (Manual)")
+            print(f"🔄 [Manual Sync] Band {band_idx} {param_name} -> {value}. ID 永久锁定。")
             
         except Exception as e:
-            print(f"❌ [State Error] Sync failed: {band_idx}.{param_name}={value} ({e})")
+            print(f"❌ [Sync Error] {e}")
+
+    def update_from_tool_calls(self, tool_calls: List[ToolCall]):
+        """
+        执行层：处理 LLM 生成的参数调整。
+        包含：重定向逻辑、干涉削减算法、满载丢弃保护。
+        """
+        current_time = time.time()
+        
+        for tool in tool_calls:
+            if tool.tool_name == "adjust_eq_band":
+                params = tool.parameters
+                idx = params.get("band_index")
+                
+                if idx is None or idx not in self.bands:
+                    continue
+
+                # --- 🧱 显式逻辑 1：ID 永久锁定与重定向 ---
+                if idx in self.manual_touch_registry:
+                    free_bands = self._get_free_bands()
+                    if free_bands:
+                        new_idx = free_bands[0] 
+                        print(f"🔀 [Guardrail] Band {idx} 受用户保护。自动重定向至空闲频段 Band {new_idx}")
+                        idx = new_idx
+                        params["band_index"] = idx 
+                    else:
+                        print(f"🚫 [Guardrail] 24频段已满且 Band {idx} 锁定，无处安置，操作丢弃。")
+                        continue
+
+                # --- 🌫️ 显式逻辑 2：Q-Aware 频域互相影响削减 ---
+                if "gain" in params:
+                    # 确定 AI 拟操作的物理属性
+                    llm_f = float(params.get("freq", params.get("frequency", self.bands[idx].frequency)))
+                    llm_q = float(params.get("q", params.get("q_factor", self.bands[idx].q_factor)))
+                    
+                    min_retention = 1.0
+                    interfered_by = None
+                    
+                    # 遍历所有手动操作过的频段，计算干涉
+                    for m_idx in self.manual_touch_registry.keys():
+                        if m_idx == idx: continue
+                        
+                        hum_f = self.bands[m_idx].frequency
+                        hum_q = self.bands[m_idx].q_factor
+                        
+                        retention = self._calculate_gain_attenuation(llm_f, llm_q, hum_f, hum_q)
+                        if retention < min_retention:
+                            min_retention = retention
+                            interfered_by = m_idx
+                    
+                    # 应用削减
+                    if min_retention < 1.0:
+                        original_gain = params["gain"]
+                        params["gain"] = original_gain * min_retention
+                        print(f"📉 [DSP Guardrail] 靠近用户频段(Band {interfered_by})。重叠削减: {original_gain:+.2f} -> {params['gain']:+.2f}")
+
+                params = self._apply_safety_constraints(params)
+
+                # --- 最终状态落库 ---
+                current_band_dict = self.bands[idx].model_dump(by_alias=True)
+                current_band_dict.update(params)
+                
+                try:
+                    self.bands[idx] = EQBand.model_validate(current_band_dict)
+                    self.last_llm_band_idx = idx
+                    self.last_llm_time = current_time
+                except Exception as e:
+                    print(f"❌ [State Validation Error] {e}")
 
     def add_history(self, user_text: str, assistant_text: str):
+        """记录对话，供上下文感知使用"""
         self.conversation_history.append({"role": "user", "content": user_text})
         self.conversation_history.append({"role": "assistant", "content": assistant_text})
 
     def get_context_prompt(self) -> str:
         """
-        生成注入到 System Prompt 中的上下文文本。
-        【修改点】去掉 60s 阈值限制，直接陈述客观事实，让 LLM 自己判断时效性。
+        生成注入 System Prompt 的上下文，实现“人机认知同步”。
         """
         current_time = time.time()
         context_blocks = []
         
-      # --- Block 1: 操作焦点 (事实陈述) ---
+        # 1. 焦点提示
         focus_lines = []
-        
-        # 1. 描述手动操作事实 (加重语气)
         if self.last_manual_band_idx is not None:
-            delta = current_time - self.last_manual_time
-            if delta < 120: # 2分钟内都算
-                time_str = f"{int(delta)}秒前"
-                # 🔥 核心修改：加上 ★★★ 标记，并明确这是用户的物理操作
-                focus_lines.append(f"★★★ 关键事实：用户【{time_str}】在宿主里手动触摸了 Band {self.last_manual_band_idx}。")
+            focus_lines.append(f"★ 锁定提示：用户手动调节过 Band {self.last_manual_band_idx}。系统禁止 AI 修改该 ID，且会在物理层拦截任何靠近该频点的干扰操作。")
 
-        # 2. 描述 AI 操作事实
         if self.last_llm_band_idx is not None:
-            delta = current_time - self.last_llm_time
-            if delta < 120:
-                time_str = f"{int(delta)}秒前"
-                focus_lines.append(f"- 参考信息：你(AI)在【{time_str}】调节过 Band {self.last_llm_band_idx}。")
+            delta = int(current_time - self.last_llm_time)
+            focus_lines.append(f"- 操作回顾：你(AI)在 {delta} 秒前调节过 Band {self.last_llm_band_idx}。")
         
         if focus_lines:
-            context_blocks.append(
-                "【⚠️ 视觉焦点与操作记录】\n" + 
-                "\n".join(focus_lines) + 
-                "\n(判定规则：当用户说“我刚才动的”、“这个”、“手动调的”时，**必须**优先锁定上述带 ★★★ 的频段，忽略你之前的操作记录。)"
-            )
+            context_blocks.append("【⚠️ 物理约束与操作同步】\n" + "\n".join(focus_lines))
 
-        # --- Block 2: EQ 状态快照与空闲频段 (Inventory Management) ---
+        # 2. 状态快照
         active_bands_desc = []
-        used_indices = set() # 记录已经被使用的频段 ID
-        
         for i in range(24):
             band = self.bands[i]
-            
-            # 如果频段被 bypass 了，我们暂时不去动它，也算作被占用/不可用
-            if not band.enabled: 
-                used_indices.add(i)
-                continue
-            
-            # 💡 核心判定：什么叫“被占用”？
-            # 只要增益不是 0，或者不是默认的 Peaking，或者开了动态，就算作“被占用”
-            is_active = (abs(band.gain) > 0.1) or \
-                        (band.filter_type not in ["Peaking"]) or \
-                        (band.dynamic_enabled)
-            
-            if is_active:
-                used_indices.add(i) # 标记为已占用
-                desc = f"- Band {i}: {band.frequency}Hz, {band.gain:+.1f}dB, {band.filter_type}"
-                if band.dynamic_enabled:
-                    desc += " [动态开启]"
-                active_bands_desc.append(desc)
+            if i in self.manual_touch_registry or (abs(band.gain) > 0.1) or (band.filter_type != "Peaking"):
+                lock_tag = "[USER-LOCKED]" if i in self.manual_touch_registry else ""
+                active_bands_desc.append(f"- Band {i}: {band.frequency:.0f}Hz, {band.gain:+.1f}dB, Q={band.q_factor:.2f} {lock_tag}")
         
-        # 💡 计算空闲频段：24个里面，除去已占用的，剩下的就是空闲的
-        free_indices = [i for i in range(24) if i not in used_indices]
-        
-        # 开始组装文本递给大模型
-        state_text = "【当前 EQ 状态 (已占用频段)】\n"
-        if active_bands_desc:
-            state_text += "\n".join(active_bands_desc) + "\n"
-        else:
-            state_text += "(暂无，所有频段均为默认平直状态)\n"
-            
-        # 🔥 最关键的一句：大声告诉它空闲的有哪些！(为了节省 Token，只给它前 5 个可用的就行)
-        if free_indices:
-            state_text += f"\n【🟢 可用空闲频段 (Free Bands)】: {free_indices[:5]} (当需要新建调整时，请务必从这里挑选 band_index！)"
-        else:
-            state_text += f"\n【🔴 警告】: 24个频段已全部用满！无法再新建，只能修改现有频段。"
-
+        free_indices = self._get_free_bands()
+        state_text = "【当前 EQ 资源状态】\n" + ("\n".join(active_bands_desc) if active_bands_desc else "(空闲)")
+        state_text += f"\n\n🟢 可用空闲 Band ID: {free_indices[:5]}" if free_indices else "\n\n🔴 警告：所有 Band 已占满。"
         context_blocks.append(state_text)
 
-        # --- Block 3: 对话历史 (保持不变) ---
-        history_text = "【对话历史】\n"
-        if not self.conversation_history:
-            history_text += "(无)"
-        else:
-            for msg in self.conversation_history:
-                role = "User" if msg['role'] == "user" else "AI"
-                history_text += f"{role}: {msg['content']}\n"
+        # 3. 历史对话
+        history_text = "【近期交互记录】\n" + "\n".join([f"{m['role'].upper()}: {m['content']}" for m in self.conversation_history])
         context_blocks.append(history_text)
 
         return "\n\n".join(context_blocks)

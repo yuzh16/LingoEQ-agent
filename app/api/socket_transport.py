@@ -1,12 +1,13 @@
 import asyncio
 import json
 from app.mcp_protocol.server import MCPHandler
+from config import settings
 
 class SocketServer:
-    def __init__(self, host="127.0.0.1", port=8888,rag_engine=None):
+    def __init__(self, host=settings.WS_HOST, port=settings.WS_PORT, rag_engine=None):
         self.host = host
         self.port = port
-        self.mcp_handler = MCPHandler(rag_engine=rag_engine) # 实例化逻辑处理器
+        self.mcp_handler = MCPHandler(rag_engine=rag_engine)
 
     async def handle_client(self, reader, writer):
         addr = writer.get_extra_info('peername')

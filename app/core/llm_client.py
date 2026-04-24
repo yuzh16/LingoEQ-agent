@@ -3,6 +3,7 @@ import re
 from typing import Optional, List, Dict
 from app.schemas.eq_protocol import AgentResponse
 from openai import OpenAI, APITimeoutError
+from config import settings
 
 class DeepSeekClient:
     """
@@ -13,12 +14,11 @@ class DeepSeekClient:
     3. 执行模型特有的清洗逻辑 (Regex Parsing, JSON Cleaning)。
     """
     
-    def __init__(self, model_name="deepseek-ai/DeepSeek-V3", base_url="https://api.siliconflow.cn/v1"):
-        self.model_name = model_name
-        # 建议后续将 API Key 移入环境变量，增强安全性
+    def __init__(self):
+        self.model_name = settings.LLM_MODEL_NAME
         self.client = OpenAI(
-            api_key="sk-qmyxmupolothjswkdfocloaykwupxcygnxraligwrqygchlm",
-            base_url=base_url
+            api_key=settings.DEEPSEEK_API_KEY,
+            base_url=settings.LLM_BASE_URL
         )
 
     def extract_thought_and_clean_json(self, raw_text: str) -> tuple[str, str]:
@@ -76,7 +76,7 @@ class DeepSeekClient:
                 model=self.model_name,
                 messages=messages,
                 response_format={"type": "json_object"}, # 强制 JSON 模式
-                temperature=0.3
+                temperature=settings.LLM_TEMPERATURE
             )
             
             # 2. 获取原始文本

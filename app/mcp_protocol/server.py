@@ -4,6 +4,7 @@ from app.services.memory_manager import MemoryManager
 from app.services.rag_engine import RagEngine
 from app.core.router_agent import RouterAgent
 from app.schemas.eq_protocol import EQBand
+from config import settings
 
 # --- 新架构核心组件 ---
 from app.core.context_manager import ContextManager
@@ -43,7 +44,7 @@ class MCPHandler:
         self.llm = DeepSeekClient()
 
         # [新增] 闭环验证深度控制 (防止死循环)
-        self.MAX_REFLEXION_DEPTH = 2  # 允许 AI 自我纠错的最大次数
+        self.MAX_REFLEXION_DEPTH = settings.MAX_REFLEXION_DEPTH  # 允许 AI 自我纠错的最大次数
         self.current_reflexion_depth = 0
         self.is_auto_check_enabled = True  # 👉 【新增】记录当前是否开启了自检模式
         
