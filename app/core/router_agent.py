@@ -1,15 +1,15 @@
 import json
 from openai import OpenAI
+from config import settings
 
 class RouterAgent:
     def __init__(self):
         # 初始化云端大模型客户端
         self.client = OpenAI(
-            api_key="sk-qmyxmupolothjswkdfocloaykwupxcygnxraligwrqygchlm", # 你的专属密钥
-            base_url="https://api.siliconflow.cn/v1"
+            api_key=settings.LLM_API_KEY,
+            base_url=settings.LLM_BASE_URL
         )
-        # 指定硅基流动的满血版 V3 模型
-        self.model_name = "deepseek-ai/DeepSeek-V3"
+        self.model_name = settings.LLM_MODEL_NAME
         
         self.system_prompt = """
 你是一个顶级的混音意图分析器。你的任务是将用户的口语化音乐制作混音需求转换为结构化的检索标签。 

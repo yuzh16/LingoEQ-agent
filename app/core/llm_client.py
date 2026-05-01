@@ -17,7 +17,7 @@ class DeepSeekClient:
     def __init__(self):
         self.model_name = settings.LLM_MODEL_NAME
         self.client = OpenAI(
-            api_key=settings.DEEPSEEK_API_KEY,
+            api_key=settings.LLM_API_KEY,
             base_url=settings.LLM_BASE_URL
         )
 

@@ -101,9 +101,9 @@ class StateManager:
             if key in params:
                 raw_val = float(params[key])
                 clamped_val = max(min_val, min(max_val, raw_val))
-            if clamped_val != raw_val:
-                print(f"🛡️ [Physical Guardrail] {key}: {raw_val} -> {clamped_val}")
-                params[key] = clamped_val
+                if clamped_val != raw_val:
+                    print(f"🛡️ [Physical Guardrail] {key}: {raw_val} -> {clamped_val}")
+                    params[key] = clamped_val
         return params
 
 
@@ -154,12 +154,11 @@ class StateManager:
 
                 # --- 🧱 显式逻辑 1：ID 永久锁定与重定向 ---
                 if idx in self.manual_touch_registry:
-                    free_bands = self._get_free_bands()
-                    if free_bands:
-                        new_idx = free_bands[0] 
-                        print(f"🔀 [Guardrail] Band {idx} 受用户保护。自动重定向至空闲频段 Band {new_idx}")
+                    new_idx = self._get_nearest_free_band(idx)
+                    if new_idx is not None:
+                        print(f"🔀 [Guardrail] Band {idx} 受用户保护。自动重定向至最近空闲频段 Band {new_idx}")
                         idx = new_idx
-                        params["band_index"] = idx 
+                        params["band_index"] = idx
                     else:
                         print(f"🚫 [Guardrail] 24频段已满且 Band {idx} 锁定，无处安置，操作丢弃。")
                         continue
@@ -204,18 +203,65 @@ class StateManager:
                 except Exception as e:
                     print(f"❌ [State Validation Error] {e}")
 
+    def _get_nearest_free_band(self, target_idx: int) -> Optional[int]:
+        """返回距离 target_idx 编号最近的空闲频段，无空闲时返回 None。"""
+        free = self._get_free_bands()
+        if not free:
+            return None
+        return min(free, key=lambda i: abs(i - target_idx))
+
+    def apply_preset_with_guardrails(self, preset_bands: list) -> list:
+        """
+        预设加载的受保护写入入口，行为与 update_from_tool_calls 对齐：
+        - 锁定频段自动重定向到最近空闲频段；无空闲则丢弃。
+        - 对所有写入执行安全钳位。
+        返回实际被写入的频段字典列表，供调用方序列化发往 C++。
+        """
+        applied = []
+        for i, band_data in enumerate(preset_bands):
+            band_data = dict(band_data)
+            idx = band_data.get("band_index", i)  # enumerate 兜底：预设数据缺字段时按顺序落库
+
+            if idx not in self.bands:
+                continue
+
+            if idx in self.manual_touch_registry:
+                nearest = self._get_nearest_free_band(idx)
+                if nearest is not None:
+                    print(f"🔀 [Preset Guardrail] Band {idx} 被用户锁定，重定向至最近空闲频段 Band {nearest}")
+                    idx = nearest
+                else:
+                    print(f"🚫 [Preset Guardrail] Band {idx} 锁定且无空闲频段，跳过。")
+                    continue
+
+            band_data["band_index"] = idx
+            band_data["index"] = idx
+            band_data = self._apply_safety_constraints(band_data)
+
+            try:
+                self.bands[idx] = EQBand.model_validate(band_data)
+                applied.append(band_data)
+            except Exception as e:
+                print(f"❌ [Preset Load Error] Band {idx}: {e}")
+
+        return applied
+
     def add_history(self, user_text: str, assistant_text: str):
         """记录对话，供上下文感知使用"""
         self.conversation_history.append({"role": "user", "content": user_text})
         self.conversation_history.append({"role": "assistant", "content": assistant_text})
 
-    def get_context_prompt(self) -> str:
+    def get_context_prompt(self, skip: bool = False) -> str:
         """
-        生成注入 System Prompt 的上下文，实现“人机认知同步”。
+        生成注入 System Prompt 的上下文，实现”人机认知同步”。
+        skip=True 时返回空字符串，用于消融实验或不需要状态上下文的场景。
         """
+        if skip:
+            return ""
+
         current_time = time.time()
         context_blocks = []
-        
+
         # 1. 焦点提示
         focus_lines = []
         if self.last_manual_band_idx is not None:
@@ -224,7 +270,7 @@ class StateManager:
         if self.last_llm_band_idx is not None:
             delta = int(current_time - self.last_llm_time)
             focus_lines.append(f"- 操作回顾：你(AI)在 {delta} 秒前调节过 Band {self.last_llm_band_idx}。")
-        
+
         if focus_lines:
             context_blocks.append("【⚠️ 物理约束与操作同步】\n" + "\n".join(focus_lines))
 
@@ -235,10 +281,10 @@ class StateManager:
             if i in self.manual_touch_registry or (abs(band.gain) > 0.1) or (band.filter_type != "Peaking"):
                 lock_tag = "[USER-LOCKED]" if i in self.manual_touch_registry else ""
                 active_bands_desc.append(f"- Band {i}: {band.frequency:.0f}Hz, {band.gain:+.1f}dB, Q={band.q_factor:.2f} {lock_tag}")
-        
+
         free_indices = self._get_free_bands()
         state_text = "【当前 EQ 资源状态】\n" + ("\n".join(active_bands_desc) if active_bands_desc else "(空闲)")
-        state_text += f"\n\n🟢 可用空闲 Band ID: {free_indices[:5]}" if free_indices else "\n\n🔴 警告：所有 Band 已占满。"
+        state_text += f"\n\n🟢 可用空闲 Band ID: {free_indices[:5]}" if free_indices else f"\n\n🔴 警告：所有 Band 已占满。"
         context_blocks.append(state_text)
 
         # 3. 历史对话

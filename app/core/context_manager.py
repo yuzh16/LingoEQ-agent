@@ -29,13 +29,15 @@ class ContextManager:
         self.sensory = sensory_manager
         print("📦 [ContextManager] 资源管理器已就绪")
 
-    def collect_resources(self, user_input: str, skip_rag: bool = False) -> Dict[str, Any]:
+    def collect_resources(self, user_input: str, skip_rag: bool = False, skip_sensory: bool = False, skip_state: bool = False) -> Dict[str, Any]:
         """
         核心方法：收集所有上下文资源
         :param user_input: 用户输入的文本（或闭环验证时的系统诊断报告）
-        :param skip_rag: 是否跳过意图分析和知识检索（用于闭环二次唤醒）
+        :param skip_rag: 是否跳过意图分析和知识检索
+        :param skip_sensory: 是否跳过音频感知数据注入
+        :param skip_state: 是否跳过 EQ 状态上下文注入
         """
-        print(f"📦 [ContextManager] 正在聚合上下文资源... (skip_rag={skip_rag})")
+        print(f"📦 [ContextManager] 正在聚合上下文资源... (skip_rag={skip_rag}, skip_sensory={skip_sensory}, skip_state={skip_state})")
 
         # 1 & 2. 意图分析与知识检索 (Router & RAG)
         if not skip_rag:
@@ -46,25 +48,20 @@ class ContextManager:
             rag_content = self.rag.search(intent_data)
         else:
             print(f"⚡ [ContextManager] 闭环验证模式：跳过 Router 与 RAG 检索。")
-            # 伪造一个意图，告诉 PromptEngineer 当前处于验证阶段
             intent_data = {"intent": "reflexion_verification", "description": "闭环验证阶段，专注于听觉反馈对比"}
-            rag_content = "当前处于闭环听觉验证阶段，以物理对比数据为准，无需额外理论知识。"
+            rag_content = ""
 
         # 3. 状态快照 (Shadow State)
-        # 获取当前 EQ 参数、最近手动操作记录、对话历史
-        state_content = self.state.get_context_prompt()
+        state_content = self.state.get_context_prompt(skip=skip_state)
 
         # 4. 记忆检索 (Memory/Presets)
-        # 获取预设列表
         preset_content = self.memory.get_all_preset_names()
 
         # 5. 工具定义 (Tools)
-        # 获取工具的 Schema 描述
         tool_definitions = get_tools_prompt()
 
         # 6. 音频感知数据 (Sensory Data)
-        # 依然获取前台 0~4 槽位的参考数据（供 LLM 保持全局参考）
-        sensory_content = self.sensory.get_sensory_data()
+        sensory_content = "" if skip_sensory else self.sensory.get_sensory_data()
 
         # 7. 打包资源
         # 返回纯数据字典，不做字符串拼接

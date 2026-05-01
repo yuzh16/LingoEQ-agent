@@ -3,7 +3,6 @@ from app.services.state_manager import StateManager
 from app.services.memory_manager import MemoryManager
 from app.services.rag_engine import RagEngine
 from app.core.router_agent import RouterAgent
-from app.schemas.eq_protocol import EQBand
 from config import settings
 
 # --- 新架构核心组件 ---
@@ -206,8 +205,8 @@ class MCPHandler:
 
             # === 二次 Pipeline Start ===
             context_data = self.context_manager.collect_resources(
-                user_input=diff_report, 
-                skip_rag=True  
+                user_input=diff_report,
+                skip_rag=True
             )
             messages = self.prompt_engineer.render_payload(context_data)
             agent_response = self.llm.call_api(messages)
@@ -348,30 +347,25 @@ class MCPHandler:
                 preset_state_list, status_msg = self.memory.load_preset(preset_name)
                 
                 if preset_state_list:
-                    clean_batch_params = []
-                    # 关键逻辑：enumerate 兜底
-                    for i, band_data in enumerate(preset_state_list):
-                        idx = band_data.get("band_index", i)
-                        band_data["band_index"] = idx
+                    applied_bands = self.state_manager.apply_preset_with_guardrails(preset_state_list)
 
-                        # 👉 【新增这一行】：为了满足 Pydantic 的严格要求，补齐 index 字段
-                        band_data["index"] = idx
-
-                        # 同步到影子状态
-                        self.state_manager.bands[idx] = EQBand.model_validate(band_data)
-                        
-                        # 清洗参数
-                        clean_band = {k: v for k, v in band_data.items() if k in self.VALID_TOOL_PARAMS}
-                        clean_band["band_index"] = idx
-                        clean_batch_params.append(clean_band)
-                    
-                    # 发送批量指令
-                    content_list.append({
-                        "type": "tool_use",
-                        "tool": "adjust_eq_batch", 
-                        "args": {"bands": clean_batch_params}
-                    })
-                    print(f"🚀 [Socket] 批量预设指令 -> C++ ({len(clean_batch_params)} bands)")
+                    if applied_bands:
+                        clean_batch_params = [
+                            {**{k: v for k, v in b.items() if k in self.VALID_TOOL_PARAMS}, "band_index": b["band_index"]}
+                            for b in applied_bands
+                        ]
+                        content_list.append({
+                            "type": "tool_use",
+                            "tool": "adjust_eq_batch",
+                            "args": {"bands": clean_batch_params}
+                        })
+                        print(f"🚀 [Socket] 批量预设指令 -> C++ ({len(clean_batch_params)} bands)")
+                    else:
+                        content_list.append({
+                            "type": "text",
+                            "role": "assistant",
+                            "text": "所有频段均被用户手动锁定，预设未能应用。请先解除手动调节。"
+                        })
                 else:
                     # 没找到预设
                     if not agent_response.reply_text: # 如果 LLM 没说话，帮它补一句
