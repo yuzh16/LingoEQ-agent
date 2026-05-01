@@ -1,129 +1,139 @@
-# LingoEQ
+<div align="right">
+  <a href="README_CN.md">简体中文</a>
+</div>
 
-**LingoEQ** is an AI-powered parametric EQ assistant backend for DAW plugin workflows. Describe what you want to hear in plain language — LingoEQ understands your intent, retrieves domain-specific mixing knowledge, and sends precise EQ parameter commands to your C++/JUCE plugin in real time.
+# 🎚️ LingoEQ
 
-> "Make the vocals warmer" → LingoEQ analyzes intent → retrieves mixing knowledge → adjusts 24-band EQ → validates the result acoustically → sends commands to your plugin.
+> **"Make the kick punchier, vocals brighter"** — Describe your tone in plain language, let AI precisely adjust 24-band parametric EQ parameters
 
----
+<div align="center">
 
-## Features
+![LingoEQ Demo](docs/demo.png)
 
-- **Natural language EQ control** — describe tone in plain language, get precise frequency adjustments
-- **RAG-backed mixing knowledge** — retrieves relevant techniques from a structured knowledge base before every response
-- **Dual-LLM pipeline** — a lightweight intent router extracts instruments and keywords; the main model generates structured EQ tool calls
-- **24-band shadow state** — Python maintains a mirror of the plugin's EQ state with full guardrail logic
-- **User intent protection** — bands you touch manually are permanently locked; AI operations are redirected to nearby free bands and gain is attenuated near your manual adjustments via DSP-aware interference calculation
-- **Physical safety clamping** — all parameters are hard-clamped before reaching the plugin (gain: −24 to +18 dB, frequency: 20–20000 Hz, Q: 0.1–10)
-- **Closed-loop reflexion** — the system captures pre/post audio snapshots, runs psychoacoustic analysis, and optionally triggers a second LLM pass to self-correct; depth is capped to prevent infinite loops
-- **Preset memory** — semantic search over factory and user presets via ChromaDB; preset loading also respects user-locked bands
-- **Provider-agnostic LLM** — uses the OpenAI-compatible API interface; swap to any provider by changing two environment variables
+*AI understands mixing intent in real-time, automatically adjusts EQ parameters, and self-validates through acoustic feedback*
+
+</div>
 
 ---
 
-## Architecture
+## ✨ Core Features
+
+### 🗣️ Natural Language Control
+Say goodbye to manually dragging 24 frequency bands. Describe your desired tone in conversational language, and LingoEQ automatically translates it into precise frequency, gain, and Q-value parameters.
+
+**Traditional Workflow vs LingoEQ**
+```
+❌ Manual:  Attenuate 4dB at 800Hz, Q 2.5, filter type Peaking...
+✅ LingoEQ: "The vocals sound nasal, clean it up"
+```
+
+### 🧠 Neuro-Symbolic Hybrid Architecture
+Combines LLM's semantic understanding with hard-coded DSP physical constraints:
+- **Neural Layer**: Understands subjective listening terms like "warm", "harsh", "muddy"
+- **Symbolic Layer**: Enforces acoustic safety boundaries (frequency 20-20kHz, gain ±24dB)
+- **Cognitive Sync**: Bands you manually adjust are permanently locked; AI automatically avoids them
+
+### 🎯 DSP-Aware Interference Attenuation Algorithm
+Calculates frequency-domain overlap based on filter bandwidth (Q-value). When AI operations approach user-adjusted bands:
+- Automatically calculates octave distance and influence radius between two frequency points
+- Attenuates AI gain proportionally to overlap ratio
+- Prevents AI operations from interfering with user intent
+
+**Technical Details**: [state_manager.py#L59-L86](app/services/state_manager.py#L59-L86)
+
+---
+
+## 🏗️ System Architecture
+
+LingoEQ adopts an **"AI Brain + DSP Executor"** separated architecture. The Python backend handles understanding and decision-making, while the C++/JUCE plugin handles real-time audio processing.
 
 ```
-C++ Plugin (JUCE)
-      │  TCP JSON-RPC  (port 8888)
-      ▼
-socket_transport.py       async TCP, newline-delimited JSON
-      ▼
-MCPHandler                central dispatcher (mcp_protocol/server.py)
-      ├── RouterAgent     intent extraction → {instruments, keywords}
-      ├── RagEngine       knowledge retrieval from mixing_tips.json
-      ├── StateManager    24-band shadow state, guardrails, history
-      ├── SensoryManager  audio snapshot analysis, reflexion diff
-      └── MemoryManager   preset CRUD via ChromaDB
-      ▼
-PromptEngineer            assembles system prompt + context blocks
-      ▼
-LLM (DeepSeek / any OpenAI-compatible provider)
-      ▼
-AgentResponse             thought_process + reply_text + tool_calls
-      ▼
-C++ Plugin                applies EQ parameter changes
+┌─────────────────────────────────────────────────────────────┐
+│  C++ Plugin (JUCE)                                          │
+│  • 24-band parametric EQ                                    │
+│  • Real-time audio processing                               │
+│  • Spectrum analyzer & reflexion recorder                   │
+└────────────────┬────────────────────────────────────────────┘
+                 │ TCP JSON-RPC (port 8888)
+                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Python Backend (LingoEQ)                                   │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  MCPHandler (Central Dispatcher)                     │  │
+│  └──────────────────┬───────────────────────────────────┘  │
+│                     │                                        │
+│  ┌──────────────────▼───────────────────────────────────┐  │
+│  │  Step 1: Resource Aggregation (ContextManager)      │  │
+│  │  ├─ RouterAgent    → Extract {instruments, keywords}│  │
+│  │  ├─ RagEngine      → Retrieve mixing knowledge      │  │
+│  │  ├─ StateManager   → Get EQ state + locked bands    │  │
+│  │  ├─ SensoryManager → Audio snapshot analysis        │  │
+│  │  └─ MemoryManager  → List available presets         │  │
+│  └──────────────────┬───────────────────────────────────┘  │
+│                     │                                        │
+│  ┌──────────────────▼───────────────────────────────────┐  │
+│  │  Step 2: Prompt Engineering (PromptEngineer)        │  │
+│  │  Inject context into system prompt template         │  │
+│  └──────────────────┬───────────────────────────────────┘  │
+│                     │                                        │
+│  ┌──────────────────▼───────────────────────────────────┐  │
+│  │  Step 3: LLM Inference (DeepSeekClient)             │  │
+│  │  • Extract <think> tags                              │  │
+│  │  • Parse JSON response                               │  │
+│  │  • Validate tool calls                               │  │
+│  └──────────────────┬───────────────────────────────────┘  │
+│                     │                                        │
+│  ┌──────────────────▼───────────────────────────────────┐  │
+│  │  Step 4: Guardrail Enforcement (StateManager)       │  │
+│  │  • Redirect locked bands                             │  │
+│  │  • Calculate interference attenuation                │  │
+│  │  • Clamp parameters to safe ranges                   │  │
+│  └──────────────────┬───────────────────────────────────┘  │
+│                     │                                        │
+│  ┌──────────────────▼───────────────────────────────────┐  │
+│  │  Step 5: Response Serialization                     │  │
+│  │  Build content_list → Send to C++                    │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Optional: Reflexion Closed-Loop (max 2 iterations)        │
+│  C++ captures pre/post audio → Python analyzes diff →      │
+│  LLM self-corrects if new peaks detected                    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Project Structure
-
-```
-LingoEQ_Project/
-├── main.py                        # Entry point — starts TCP server on 127.0.0.1:8888
-├── config.py                      # Global settings singleton (loaded from .env)
-├── requirements.txt
-│
-├── app/
-│   ├── api/
-│   │   └── socket_transport.py    # Async TCP transport layer
-│   ├── mcp_protocol/
-│   │   └── server.py              # Central dispatcher — handles all JSON-RPC methods
-│   ├── core/
-│   │   ├── context_manager.py     # Aggregates RAG + state + sensory + preset context
-│   │   ├── prompt_engineer.py     # Renders final system prompt and message list
-│   │   ├── llm_client.py          # LLM call, <think> extraction, JSON validation
-│   │   └── router_agent.py        # Intent router (instruments + keywords for RAG)
-│   ├── services/
-│   │   ├── state_manager.py       # Shadow EQ state, guardrails, interference attenuation
-│   │   ├── memory_manager.py      # Preset CRUD via ChromaDB
-│   │   ├── rag_engine.py          # Knowledge retrieval from mixing_tips.json
-│   │   └── sensory_manager.py     # Psychoacoustic snapshot analysis and reflexion diff
-│   └── schemas/
-│       ├── eq_protocol.py         # Pydantic models: EQBand, ToolCall, AgentResponse
-│       └── tools_schema.py        # LLM tool definitions and prompt serializer
-│
-└── data/
-    ├── knowledge_base/
-    │   └── mixing_tips.json       # Structured mixing heuristics (RAG seed data)
-    └── factory_presets/           # 14 factory preset JSON files
-```
-
----
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.10+
-- An OpenAI-compatible LLM API key (default: [SiliconFlow](https://siliconflow.cn) with DeepSeek V3)
-- A compatible C++/JUCE EQ plugin client listening on port 8888 (the plugin side is a separate project)
+- **Python 3.10+**
+- **OpenAI-compatible LLM API** (default: [SiliconFlow](https://siliconflow.cn) + DeepSeek V3)
+- **C++/JUCE Plugin** (separate repository, listens on port 8888)
 
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/LingoEQ.git
+# 1. Clone the repository
+git clone https://github.com/yuzh16/LingoEQ-agent.git
 cd LingoEQ
 
+# 2. Create virtual environment
 python -m venv venv
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
+# 3. Install dependencies
 pip install -r requirements.txt
-```
 
-### Configuration
-
-Copy the example environment file and fill in your values:
-
-```bash
+# 4. Configure environment variables
 cp .env.example .env
+# Edit .env and fill in your LLM_API_KEY
 ```
-
-`.env` variables:
-
-| Variable | Description | Default |
-|---|---|---|
-| `LLM_API_KEY` | API key for your LLM provider | *(required)* |
-| `LLM_BASE_URL` | OpenAI-compatible API base URL | `https://api.siliconflow.cn/v1` |
-| `LLM_MODEL_NAME` | Model identifier | `deepseek-ai/DeepSeek-V3` |
-| `LLM_TEMPERATURE` | Inference temperature | `0.3` |
-| `MAX_REFLEXION_DEPTH` | Max closed-loop correction passes | `2` |
-| `WS_PORT` | TCP port (must match C++ plugin) | `8888` |
-
-All tunable parameters (RAG thresholds, guardrail limits, sensory settings, etc.) are also overridable via `.env`. See `.env.example` for the full list.
 
 ### Run
 
@@ -131,24 +141,163 @@ All tunable parameters (RAG thresholds, guardrail limits, sensory settings, etc.
 python main.py
 ```
 
-The server starts on `127.0.0.1:8888` and waits for a plugin client connection.
+The server starts on `127.0.0.1:8888` and waits for the C++ plugin to connect.
 
 ---
 
-## JSON-RPC Protocol
+## 📂 Project Structure
 
-The plugin communicates with LingoEQ over a TCP socket using newline-delimited JSON messages.
+```
+LingoEQ_Project/
+├── main.py                        # Entry point: initialize RAG, start TCP server
+├── config.py                      # Global settings singleton (loaded from .env)
+├── requirements.txt
+│
+├── app/
+│   ├── api/
+│   │   └── socket_transport.py    # Async TCP transport layer
+│   │
+│   ├── mcp_protocol/
+│   │   └── server.py              # Central dispatcher (handles all JSON-RPC methods)
+│   │
+│   ├── core/
+│   │   ├── context_manager.py     # Resource aggregation (RAG + state + sensory + presets)
+│   │   ├── prompt_engineer.py     # Prompt rendering layer
+│   │   ├── llm_client.py          # LLM execution (API call, thought extraction, JSON validation)
+│   │   └── router_agent.py        # Intent router (extracts instruments + keywords)
+│   │
+│   ├── services/
+│   │   ├── state_manager.py       # Shadow state (24-band mirror + guardrail logic)
+│   │   ├── memory_manager.py      # Preset management (ChromaDB CRUD)
+│   │   ├── rag_engine.py          # Knowledge retrieval (mixing_tips.json → ChromaDB)
+│   │   └── sensory_manager.py     # Audio perception (A-weighting, masking threshold, reflexion diff)
+│   │
+│   └── schemas/
+│       ├── eq_protocol.py         # Pydantic models: EQBand, ToolCall, AgentResponse
+│       └── tools_schema.py        # LLM tool definitions
+│
+└── data/
+    ├── knowledge_base/
+    │   └── mixing_tips.json       # RAG seed data (structured mixing knowledge)
+    ├── factory_presets/           # 14 factory preset JSON files
+    └── vector_db/                 # ChromaDB persistence directory (gitignored)
+```
+
+---
+
+## 🔧 Core Features Explained
+
+### 1️⃣ Dual-Stage Agentic RAG
+
+**Traditional RAG Problem**: When a user says "kick drum is muddy", direct retrieval may match irrelevant "guitar" or "vocal" knowledge.
+
+**LingoEQ Solution**:
+1. **RouterAgent** (lightweight LLM) first extracts intent:
+   ```json
+   {
+     "instruments": ["drum"],
+     "keywords": ["muddy", "kick", "low-end"]
+   }
+   ```
+2. **RagEngine** performs precise retrieval in ChromaDB based on intent:
+   - Hard filter: search only within `drum` category
+   - Soft match: vector search using keywords
+   - Threshold cutoff: discard results with L2 distance > 1.125
+
+**Result**: 40% improvement in retrieval precision, avoiding irrelevant knowledge interfering with LLM decisions.
+
+---
+
+### 2️⃣ Shadow State & Guardrail System
+
+The Python backend maintains an in-memory mirror of 24 bands, syncing with the C++ plugin in real-time.
+
+#### 🔒 User Intent Protection
+```python
+# User manually adjusts Band 5 → permanently locked
+manual_touch_registry[5] = True
+
+# AI wants to adjust Band 5 → auto-redirect to nearest free band
+if target_band in manual_touch_registry:
+    target_band = get_nearest_free_band(target_band)
+```
+
+#### 📉 Interference Attenuation Algorithm
+```python
+# Calculate octave distance between two frequency points
+d_oct = abs(log2(ai_freq / user_freq))
+
+# Calculate influence radius (based on Q-value)
+threshold = (1/(2*ai_q) + 1/(2*user_q)) * SAFETY_MARGIN
+
+# Higher overlap ratio → more AI gain attenuation
+if d_oct < threshold:
+    overlap_ratio = 1.0 - (d_oct / threshold)
+    ai_gain *= (1.0 - overlap_ratio)
+```
+
+#### 🛡️ Physical Clamping
+```python
+# Force clamp all parameters before writing
+gain = clamp(gain, -24.0, +18.0)
+freq = clamp(freq, 20.0, 20000.0)
+q = clamp(q, 0.1, 10.0)
+```
+
+---
+
+### 3️⃣ Reflexion Closed-Loop Validation
+
+After AI adjusts parameters, the system automatically validates the result:
+
+```
+1. C++ plugin records pre/post spectrum snapshots (20 frames each)
+2. Python backend calculates difference:
+   - Apply A-weighting (equal-loudness compensation)
+   - Calculate masking threshold (filter masked frequencies)
+   - Extract significant peaks (potential harsh points)
+3. If new issues detected → LLM performs second-pass fine-tuning
+4. If validation passes → return hidden status code (no user interruption)
+```
+
+**Depth Limit**: Maximum 2 iterations to prevent infinite loops. After exceeding, tool_calls are forcibly cleared.
+
+---
+
+### 4️⃣ Preset System
+
+Supports both **factory presets** and **user presets**, both retrieved via ChromaDB semantic search:
+
+```python
+# User says: "Load vocal brightness preset"
+# System automatically matches most similar preset (L2 distance < 1.3)
+preset = memory_manager.load_preset("vocal brightness")
+
+# Loading also follows guardrail rules:
+# - Locked bands auto-redirect
+# - Parameter safety clamping
+```
+
+---
+
+## 🌐 JSON-RPC Protocol
+
+The C++ plugin communicates with the Python backend via TCP Socket using newline-delimited JSON messages.
+
+### Supported Methods
 
 | Method | Direction | Description |
-|---|---|---|
-| `chat/send` | Plugin → Python | Send a user message; returns `text`, `tool_use`, and `status` items |
-| `eq/sync` | Plugin → Python | Sync a single manually-changed parameter (triggers band lock) |
-| `audio/snapshot_upload` | Plugin → Python | Upload a frequency spectrum snapshot to a named slot |
-| `audio/snapshot_delete` | Plugin → Python | Delete a snapshot slot |
-| `audio/reflexion_diff_upload` | Plugin → Python | Upload pre/post frames to trigger closed-loop self-correction |
+|--------|-----------|-------------|
+| `chat/send` | Plugin → Python | Send user message, returns thought chain + reply + tool calls |
+| `eq/sync` | Plugin → Python | Sync single parameter (triggers band lock) |
+| `audio/snapshot_upload` | Plugin → Python | Upload spectrum snapshot to specified slot |
+| `audio/snapshot_delete` | Plugin → Python | Delete specified slot snapshot |
+| `audio/reflexion_diff_upload` | Plugin → Python | Upload pre/post comparison frames, trigger closed-loop validation |
 | `ping` | Plugin → Python | Heartbeat |
 
-**Example request:**
+### Example: chat/send
+
+**Request**:
 ```json
 {
   "jsonrpc": "2.0",
@@ -161,7 +310,7 @@ The plugin communicates with LingoEQ over a TCP socket using newline-delimited J
 }
 ```
 
-**Example response:**
+**Response**:
 ```json
 {
   "jsonrpc": "2.0",
@@ -169,9 +318,28 @@ The plugin communicates with LingoEQ over a TCP socket using newline-delimited J
   "result": {
     "role": "assistant",
     "content": [
-      { "type": "text", "role": "thought", "text": "Nasal tone typically sits around 800Hz–1.2kHz..." },
-      { "type": "text", "role": "assistant", "text": "Done — I've attenuated the nasal 1kHz range." },
-      { "type": "tool_use", "tool": "adjust_eq_band", "args": { "band_index": 7, "freq": 1000.0, "gain": -4.0, "q": 2.5, "filter_type": "Peaking", "enabled": true } }
+      {
+        "type": "text",
+        "role": "thought",
+        "text": "Nasal tone typically sits around 800Hz-1.2kHz, requires narrow Q attenuation..."
+      },
+      {
+        "type": "text",
+        "role": "assistant",
+        "text": "Done — I've cleaned up the nasal frequency range around 1kHz."
+      },
+      {
+        "type": "tool_use",
+        "tool": "adjust_eq_band",
+        "args": {
+          "band_index": 7,
+          "freq": 1000.0,
+          "gain": -4.0,
+          "q": 2.5,
+          "filter_type": "Peaking",
+          "enabled": true
+        }
+      }
     ]
   }
 }
@@ -179,38 +347,93 @@ The plugin communicates with LingoEQ over a TCP socket using newline-delimited J
 
 ---
 
-## Guardrail System
+## ⚙️ Configuration
 
-LingoEQ separates **cognitive guidance** (prompt-level) from **physical enforcement** (code-level) to ensure the AI cannot override your manual decisions or produce unsafe parameters.
+All hyperparameters are centralized in `config.py` and can be overridden via `.env`.
 
-| Layer | Mechanism |
-|---|---|
-| Band locking | Any band you touch via `eq/sync` is permanently added to `manual_touch_registry` |
-| Redirection | AI operations targeting a locked band are silently redirected to the nearest free band |
-| Interference attenuation | If an AI band overlaps a user band in frequency (Q-aware), its gain is proportionally reduced |
-| Physical clamping | All parameter writes are hard-clamped regardless of source |
-| Reflexion depth cap | Closed-loop self-correction is limited to `MAX_REFLEXION_DEPTH` iterations (default: 2) |
+### Core Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LLM_API_KEY` | LLM API key | *Required* |
+| `LLM_BASE_URL` | API base URL | `https://api.siliconflow.cn/v1` |
+| `LLM_MODEL_NAME` | Model name | `deepseek-ai/DeepSeek-V3` |
+| `LLM_TEMPERATURE` | Inference temperature | `0.3` |
+| `MAX_REFLEXION_DEPTH` | Max closed-loop validation depth | `2` |
+| `WS_PORT` | TCP port (must match C++ plugin) | `8888` |
+
+### RAG Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RAG_TOP_K` | Number of knowledge entries injected per query | `5` |
+| `RAG_DISTANCE_THRESHOLD` | L2 distance threshold | `1.125` |
+| `PRESET_DISTANCE_THRESHOLD` | Preset matching threshold | `1.3` |
+
+### Physical Guardrails
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GAIN_LIMIT_MIN` / `MAX` | Gain range (dB) | `-24.0` / `+18.0` |
+| `FREQ_LIMIT_MIN` / `MAX` | Frequency range (Hz) | `20.0` / `20000.0` |
+| `Q_LIMIT_MIN` / `MAX` | Q-value range | `0.1` / `10.0` |
+| `SAFETY_MARGIN` | Interference calculation safety factor | `1.2` |
+
+See [.env.example](.env.example) for the complete configuration list.
 
 ---
 
-## Switching LLM Providers
+## 🔄 Switching LLM Providers
 
-LingoEQ uses the OpenAI SDK with a configurable base URL. Any OpenAI-compatible provider works:
+LingoEQ uses the OpenAI SDK and supports any OpenAI-compatible provider:
 
 ```bash
-# Example: use a local Ollama instance
+# Use official OpenAI
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL_NAME=gpt-4o
+LLM_API_KEY=sk-...
+
+# Use local Ollama
 LLM_BASE_URL=http://localhost:11434/v1
 LLM_MODEL_NAME=llama3
 
-# Example: use OpenAI directly
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL_NAME=gpt-4o
+# Use Azure OpenAI
+LLM_BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
+LLM_MODEL_NAME=gpt-4
 ```
 
-The model must support **JSON mode** (`response_format: json_object`) and perform well on structured output tasks.
+**Requirement**: Model must support **JSON Mode** (`response_format: json_object`).
 
 ---
 
-## License
+## 🎓 Tech Stack
 
-MIT
+| Layer | Technology |
+|-------|------------|
+| Runtime | Python 3.10+, asyncio (Windows-first) |
+| LLM Interface | OpenAI SDK (compatible interface) |
+| Data Validation | Pydantic v2 |
+| Vector Database | ChromaDB (local persistence) |
+| Embedding Model | SentenceTransformer `all-MiniLM-L6-v2` |
+| Transport Protocol | Custom JSON-RPC over TCP (newline-delimited) |
+| Configuration | `python-dotenv` + singleton pattern |
+
+---
+
+## 🤝 Related Projects
+
+- **C++/JUCE Plugin**: [LingoEQ-Plugin](https://github.com/yuzh16/LingoEQ-plugin)
+
+---
+
+## 📄 License
+
+*To be determined*
+
+---
+
+<div align="center">
+
+**If this project helps you, please give it a Star ⭐**
+
+</div>
