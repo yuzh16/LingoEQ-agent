@@ -5,3 +5,8 @@ colorama
 chromadb
 sentence-transformers
 numpy
+
+# Benchmark HTTP facade server (lingoeq_bench_server.py)
+# 仅在需要运行 LingoEQ-Bench 评测时安装，生产环境(main.py)无需此依赖
+fastapi>=0.110.0
+uvicorn>=0.29.0

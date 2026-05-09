@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv
 
-# 加载项目根目录的 .env 文件
-load_dotenv()
+# 固定加载 config.py 同级目录下的 .env，不受工作目录影响
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 class Settings:
     """
@@ -13,7 +13,7 @@ class Settings:
     # ==========================================
     # 1. 大语言模型与核心计算层 (LLM & Inference)
     # ==========================================
-    LLM_API_KEY = os.getenv("LLM_API_KEY", "")           # 填你所用 provider 的 API Key
+    LLM_API_KEY = os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY", "")  # 兼容两种字段名
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1")
     LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-ai/DeepSeek-V3")
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))   # 推理确定性，越低越稳定
@@ -47,8 +47,8 @@ class Settings:
     # 5. 心理声学与感知特征 (Psychoacoustics & Sensory)
     # ==========================================
     MAX_SENSORY_SLOTS = int(os.getenv("MAX_SENSORY_SLOTS", "5"))    # 允许缓存的参考音频快照数量上限
-    SENSORY_TOP_PEAKS = int(os.getenv("SENSORY_TOP_PEAKS", "3"))    # 每次汇报的最显著共振刺耳点数量
-    SENSORY_TOP_VALLEYS = int(os.getenv("SENSORY_TOP_VALLEYS", "2")) # 每次汇报的最显著频率凹陷点数量
+    SENSORY_TOP_PEAKS = int(os.getenv("SENSORY_TOP_PEAKS", "5"))    # 每次汇报的最显著共振刺耳点数量
+    SENSORY_TOP_VALLEYS = int(os.getenv("SENSORY_TOP_VALLEYS", "3")) # 每次汇报的最显著频率凹陷点数量
 
     # ==========================================
     # 6. 确定性物理护栏 (Deterministic Guardrails)

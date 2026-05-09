@@ -113,14 +113,14 @@ class MemoryManager:
             embeddings=embedding,
             metadatas=[{
                 "eq_state": json.dumps(effective_bands, ensure_ascii=False),
-                "is_factory": False, # 标记为用户预设
+                "is_factory": False,
                 "category": "User",
-                "description": "User created preset"
+                "description": "User created preset",
+                "name": preset_name
             }],
             ids=[preset_id]
         )
         
-        count = len(effective_bands)
         print(f"💾 [Memory] 用户预设【{preset_name}】已保存。")
         return f"好的！预设【{preset_name}】已保存。"
 
@@ -177,7 +177,7 @@ class MemoryManager:
             
             for doc, meta in zip(docs, metas):
                 # 简单处理：取 document 的前 20 个字符作为名字展示
-                name = doc.split(" ", 1)[0] 
+                name = meta.get("name") or doc.split(" ", 1)[0]
                 if meta.get("is_factory"):
                     factory_list.append(f"{name} ({meta.get('category')})")
                 else:

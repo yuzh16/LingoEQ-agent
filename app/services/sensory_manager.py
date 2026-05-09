@@ -150,6 +150,11 @@ class SensoryManager:
             self.snapshots[slot_index] = snapshot
             print(f"👂 [SensoryManager] 深度听觉分析完成 (掩蔽过滤了 {snapshot['masked_count']} 个伪频段)，已存入槽位 [{slot_index+1}/5]")
 
+    def reset(self):
+        """重置所有快照，用于 benchmark 每个 test case 之间的隔离"""
+        self.snapshots = {}
+        self.silent_snapshot = {}
+
     def delete_snapshot(self, slot_index: int):
         # [逻辑保持不变]
         if slot_index in self.snapshots:

@@ -107,6 +107,16 @@ class StateManager:
         return params
 
 
+    def reset(self):
+        """重置所有状态，用于 benchmark 每个 test case 之间的隔离"""
+        self.bands = {i: EQFactory.create_default_band(i) for i in range(24)}
+        self.manual_touch_registry = {}
+        self.conversation_history.clear()
+        self.last_llm_band_idx = None
+        self.last_llm_time = 0.0
+        self.last_manual_band_idx = None
+        self.last_manual_time = 0.0
+
     def update_specific_param(self, band_idx: int, param_name: str, value: Any):
         """
         同步层：当用户在宿主软件上手动调节时调用。
