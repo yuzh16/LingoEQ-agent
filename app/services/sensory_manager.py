@@ -11,18 +11,85 @@ class SensoryManager:
         self.silent_snapshot: dict = {}
 
     def _get_a_weighting(self, freq: float) -> float:
-        """
-        [内部工具] 计算指定频率的 A-Weighting (A计权) 补偿分贝值。
-        基于国际标准 IEC 61672:2003 的近似公式。
-        """
+        """A计权 (IEC 61672:2003)，0dB 参考点在 1kHz。"""
         if freq <= 0:
             return -100.0
         f_sq = freq ** 2
-        # A计权标准公式的分子和分母常量
         ra = (12194**2 * f_sq**2) / ((f_sq + 20.6**2) * np.sqrt((f_sq + 107.7**2) * (f_sq + 737.9**2)) * (f_sq + 12194**2))
-        # 转换为 dB 并加上 2.0dB 使得 1000Hz 处为 0dB
-        a_weight_db = 20 * np.log10(ra) + 2.0
-        return a_weight_db
+        return 20 * np.log10(ra) + 2.0
+
+    def _get_k_weighting(self, freq: float) -> float:
+        """K计权 (ITU-R BS.1770) 频率响应采样，0dB 参考点在 1kHz。
+        通过对两级数字滤波器（预滤波器 + RLB 高通）的频率响应采样实现逐频段计权。
+        """
+        fs = 48000.0
+        w = 2 * np.pi * freq / fs
+        z = np.exp(1j * w)
+
+        # Stage 1: 高频搁架预滤波器 (~+4dB above 1kHz)
+        b1 = [1.53512485958697, -2.69169618940638, 1.19839281085285]
+        a1 = [1.0, -1.69065929318241, 0.73248077421585]
+        H1 = (b1[0] + b1[1]/z + b1[2]/z**2) / (a1[0] + a1[1]/z + a1[2]/z**2)
+
+        # Stage 2: RLB 高通滤波器 (截止 ~38Hz)
+        b2 = [1.0, -2.0, 1.0]
+        a2 = [1.0, -1.99004745483398, 0.99007225036621]
+        H2 = (b2[0] + b2[1]/z + b2[2]/z**2) / (a2[0] + a2[1]/z + a2[2]/z**2)
+
+        db = 20 * np.log10(abs(H1 * H2) + 1e-12)
+
+        # 归一化：在 1kHz 处为 0dB
+        w_ref = 2 * np.pi * 1000.0 / fs
+        z_ref = np.exp(1j * w_ref)
+        H1r = (b1[0] + b1[1]/z_ref + b1[2]/z_ref**2) / (a1[0] + a1[1]/z_ref + a1[2]/z_ref**2)
+        H2r = (b2[0] + b2[1]/z_ref + b2[2]/z_ref**2) / (a2[0] + a2[1]/z_ref + a2[2]/z_ref**2)
+        db_ref = 20 * np.log10(abs(H1r * H2r) + 1e-12)
+
+        return db - db_ref
+
+    def _get_iso226_80phon(self, freq: float) -> float:
+        """ISO 226:2003 等响度曲线 80 phon，0dB 参考点在 1kHz。
+        适用于混音监听场景（标准监听 SPL ~78-83 dB）。
+        权重含义：负值表示该频率人耳感知较弱（需更多 SPL），与 A 计权符号约定相同。
+        """
+        # ISO 226:2003 Table 1 参数
+        _F  = [20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,
+               630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500]
+        _AF = [0.532,0.506,0.480,0.455,0.432,0.409,0.387,0.367,0.349,0.330,
+               0.315,0.301,0.288,0.276,0.267,0.259,0.253,0.250,0.246,0.244,
+               0.243,0.243,0.243,0.242,0.242,0.245,0.254,0.271,0.301]
+        _LU = [-31.6,-27.2,-23.0,-19.1,-15.9,-13.0,-10.3,-8.1,-6.2,-4.5,
+               -3.1,-2.0,-1.1,-0.4,0.0,0.3,0.5,0.0,-2.7,-4.1,
+               -1.0,1.7,2.5,1.2,-2.1,-7.1,-11.2,-10.7,-3.5]
+        _TF = [78.5,68.7,59.5,51.1,44.0,37.5,31.5,26.5,22.1,17.9,
+               14.4,11.4,8.6,6.2,4.4,3.0,2.2,2.4,3.5,1.7,
+               -1.3,-4.2,-6.0,-5.4,-1.5,6.0,12.6,13.9,12.3]
+
+        L_N = 80.0
+
+        def _lp(af, lu, tf):
+            A = 4.47e-3 * (10**(0.025 * L_N) - 1.15) + (0.4 * 10**((tf + lu) / 10 - 9))**af
+            return (10 / af) * np.log10(A) - lu + 94
+
+        lp_table = [_lp(a, l, t) for a, l, t in zip(_AF, _LU, _TF)]
+
+        # 在对数频率轴上插值；超出 12500Hz 截断使用边界值（标准不定义此范围外的数据）
+        log_freqs = np.log10(_F)
+        log_f = np.log10(max(20.0, min(12500.0, freq)))
+        lp = float(np.interp(log_f, log_freqs, lp_table))
+
+        lp_1k = lp_table[17]  # 1000Hz 处的等响度 SPL = 80dB
+        return lp_1k - lp     # 负值=该频率需更多 SPL→人耳不敏感；正值=更敏感
+
+    def _get_psychoacoustic_weight(self, freq: float) -> float:
+        """根据 config 的 PSYCHOACOUSTIC_MODEL 选择计权函数。"""
+        model = settings.PSYCHOACOUSTIC_MODEL
+        if model == "k_weighting":
+            return self._get_k_weighting(freq)
+        elif model == "iso226_80phon":
+            return self._get_iso226_80phon(freq)
+        else:
+            return self._get_a_weighting(freq)
 
     def _calculate_masking_threshold(self, loudness_db: np.ndarray) -> np.ndarray:
         """
@@ -81,7 +148,7 @@ class SensoryManager:
         # 2. 心理声学补偿 (感知层)
         # ==========================================
         # A. 计算并叠加 A-Weighting (等响度补偿)
-        a_weights = np.array([self._get_a_weighting(f) for f in freqs])
+        a_weights = np.array([self._get_psychoacoustic_weight(f) for f in freqs])
         perceived_loudness_db = phys_avg_db + a_weights
         
         # 将感知响度映射回 0.0 ~ 1.0 用于平衡计算
@@ -195,8 +262,8 @@ class SensoryManager:
 --- 槽位 #{slot_idx+1} ({snap['timestamp']}) ---
 1. 整体平衡: {bal_str}
 2. 动态特性: {snap['dynamic_type']}
-3. 显著共振点 (未被掩蔽的刺耳/轰鸣区): {peaks_str if peaks_str else '无明显共振'}
-4. 显著缺失区 (未被掩蔽的暗淡区): {valleys_str if valleys_str else '无明显缺失'}"""
+3. 【需衰减】显著过载频率 (能量过高/刺耳轰鸣，必须用负增益压制): {peaks_str if peaks_str else '无'}
+4. 【需提升】显著缺失频率 (能量不足/暗淡，必须用正增益补偿): {valleys_str if valleys_str else '无'}"""
             context_lines.append(line)
             
         return "\n".join(context_lines)
@@ -214,7 +281,7 @@ class SensoryManager:
                 phys_avg = np.mean(np_frames, axis=0)
                 phys_avg_db = phys_avg * 100.0 - 100.0
                 
-                a_weights = np.array([self._get_a_weighting(f) for f in frequencies])
+                a_weights = np.array([self._get_psychoacoustic_weight(f) for f in frequencies])
                 perceived_loudness_db = phys_avg_db + a_weights
                 perceived_loudness_norm = np.clip((perceived_loudness_db + 100.0) / 100.0, 0.0, 1.0)
                 masking_threshold_db = self._calculate_masking_threshold(perceived_loudness_db)

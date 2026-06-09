@@ -28,8 +28,11 @@ class StateManager:
         # ==========================================
         # 🛡️ 显式逻辑配置 (Guardrail Config)
         # ==========================================
-        # 只要用户动过，该频段 ID 永久锁定，AI 不得直操
-        self.manual_touch_registry: Dict[int, bool] = {} 
+        # 只要用户动过，该频段 ID 永久锁定，AI 不得直操，且参与干涉削减计算
+        self.manual_touch_registry: Dict[int, bool] = {}
+        # Benchmark 专用：仅限制 AI 的 band_id 选择范围，不参与干涉削减计算
+        # 生产路径（chat/send）不会写入此 registry，始终为空
+        self.virtual_lock_registry: Dict[int, bool] = {}
         
         # 声学保护系数：保护范围覆盖带宽，提供平滑的干涉缓冲
         self.SAFETY_MARGIN = settings.SAFETY_MARGIN       
@@ -37,12 +40,12 @@ class StateManager:
     def _get_free_bands(self) -> List[int]:
         """
         获取当前未被占用的空闲频段列表。
-        判定标准：1. 未被用户手动操作过；2. 增益为0且为默认 Peaking 类型且未开启动态。
+        判定标准：1. 未被用户手动操作过且未被虚拟锁定；2. 增益为0且为默认 Peaking 类型且未开启动态。
         """
         free_indices = []
         for i in range(24):
-            # 如果 ID 在手动保护名单里，绝对不空闲
-            if i in self.manual_touch_registry:
+            # 手动锁定或虚拟锁定的频段均不空闲
+            if i in self.manual_touch_registry or i in self.virtual_lock_registry:
                 continue
             
             band = self.bands[i]
@@ -111,6 +114,7 @@ class StateManager:
         """重置所有状态，用于 benchmark 每个 test case 之间的隔离"""
         self.bands = {i: EQFactory.create_default_band(i) for i in range(24)}
         self.manual_touch_registry = {}
+        self.virtual_lock_registry = {}
         self.conversation_history.clear()
         self.last_llm_band_idx = None
         self.last_llm_time = 0.0
@@ -163,7 +167,7 @@ class StateManager:
                     continue
 
                 # --- 🧱 显式逻辑 1：ID 永久锁定与重定向 ---
-                if idx in self.manual_touch_registry:
+                if idx in self.manual_touch_registry or idx in self.virtual_lock_registry:
                     new_idx = self._get_nearest_free_band(idx)
                     if new_idx is not None:
                         print(f"🔀 [Guardrail] Band {idx} 受用户保护。自动重定向至最近空闲频段 Band {new_idx}")

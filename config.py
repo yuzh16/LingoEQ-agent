@@ -47,8 +47,10 @@ class Settings:
     # 5. 心理声学与感知特征 (Psychoacoustics & Sensory)
     # ==========================================
     MAX_SENSORY_SLOTS = int(os.getenv("MAX_SENSORY_SLOTS", "5"))    # 允许缓存的参考音频快照数量上限
-    SENSORY_TOP_PEAKS = int(os.getenv("SENSORY_TOP_PEAKS", "5"))    # 每次汇报的最显著共振刺耳点数量
-    SENSORY_TOP_VALLEYS = int(os.getenv("SENSORY_TOP_VALLEYS", "3")) # 每次汇报的最显著频率凹陷点数量
+    SENSORY_TOP_PEAKS = int(os.getenv("SENSORY_TOP_PEAKS", "3"))    # 每次汇报的最显著共振刺耳点数量
+    SENSORY_TOP_VALLEYS = int(os.getenv("SENSORY_TOP_VALLEYS", "2")) # 每次汇报的最显著频率凹陷点数量
+    # 心理声学计权模型: "a_weighting" | "k_weighting" | "iso226_80phon"
+    PSYCHOACOUSTIC_MODEL = os.getenv("PSYCHOACOUSTIC_MODEL", "a_weighting")
 
     # ==========================================
     # 6. 确定性物理护栏 (Deterministic Guardrails)
