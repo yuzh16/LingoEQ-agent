@@ -30,7 +30,7 @@ Say goodbye to manually dragging 24 frequency bands. Describe your desired tone 
 ### 🧠 Neuro-Symbolic Hybrid Architecture
 Combines LLM's semantic understanding with hard-coded DSP physical constraints:
 - **Neural Layer**: Understands subjective listening terms like "warm", "harsh", "muddy"
-- **Symbolic Layer**: Enforces acoustic safety boundaries (frequency 20-20kHz, gain ±24dB)
+- **Symbolic Layer**: Enforces acoustic safety boundaries (frequency 20-20kHz, gain -24 to +18dB)
 - **Cognitive Sync**: Bands you manually adjust are permanently locked; AI automatically avoids them
 
 ### 🎯 DSP-Aware Interference Attenuation Algorithm
@@ -121,7 +121,7 @@ LingoEQ adopts an **"AI Brain + DSP Executor"** separated architecture. The Pyth
 ```bash
 # 1. Clone the repository
 git clone https://github.com/yuzh16/LingoEQ-agent.git
-cd LingoEQ
+cd LingoEQ-agent
 
 # 2. Create virtual environment
 python -m venv venv
@@ -152,6 +152,8 @@ LingoEQ_Project/
 ├── main.py                        # Entry point: initialize RAG, start TCP server
 ├── config.py                      # Global settings singleton (loaded from .env)
 ├── requirements.txt
+├── lingoeq_bench_server.py        # Benchmark HTTP facade (POST /benchmark, for LingoEQ-Bench evaluation)
+├── .env.example                   # Configuration template
 │
 ├── app/
 │   ├── api/
@@ -170,7 +172,7 @@ LingoEQ_Project/
 │   │   ├── state_manager.py       # Shadow state (24-band mirror + guardrail logic)
 │   │   ├── memory_manager.py      # Preset management (ChromaDB CRUD)
 │   │   ├── rag_engine.py          # Knowledge retrieval (mixing_tips.json → ChromaDB)
-│   │   └── sensory_manager.py     # Audio perception (A-weighting, masking threshold, reflexion diff)
+│   │   └── sensory_manager.py     # Audio perception (psychoacoustic weighting, masking threshold, reflexion diff)
 │   │
 │   └── schemas/
 │       ├── eq_protocol.py         # Pydantic models: EQBand, ToolCall, AgentResponse
@@ -204,7 +206,7 @@ LingoEQ_Project/
    - Soft match: vector search using keywords
    - Threshold cutoff: discard results with L2 distance > 1.125
 
-**Result**: 40% improvement in retrieval precision, avoiding irrelevant knowledge interfering with LLM decisions.
+**Result**: Avoids irrelevant knowledge interfering with LLM decisions, especially in multi-instrument scenarios.
 
 ---
 
@@ -369,6 +371,16 @@ All hyperparameters are centralized in `config.py` and can be overridden via `.e
 | `RAG_TOP_K` | Number of knowledge entries injected per query | `5` |
 | `RAG_DISTANCE_THRESHOLD` | L2 distance threshold | `1.125` |
 | `PRESET_DISTANCE_THRESHOLD` | Preset matching threshold | `1.3` |
+| `MAX_CONVERSATION_HISTORY` | Max conversation turns carried in context | `5` |
+
+### Psychoacoustic & Sensory
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PSYCHOACOUSTIC_MODEL` | Weighting model: `a_weighting` / `k_weighting` / `iso226_80phon` | `a_weighting` |
+| `MAX_SENSORY_SLOTS` | Max cached audio snapshot slots | `5` |
+| `SENSORY_TOP_PEAKS` | Max prominent peaks reported per snapshot | `3` |
+| `SENSORY_TOP_VALLEYS` | Max prominent valleys reported per snapshot | `2` |
 
 ### Physical Guardrails
 

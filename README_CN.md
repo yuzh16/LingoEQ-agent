@@ -30,7 +30,7 @@
 ### 🧠 Neuro-Symbolic 混合架构
 将 LLM 的语义理解能力与硬编码的 DSP 物理约束结合：
 - **神经层**：理解"温暖"、"刺耳"、"浑浊"等主观听感词汇
-- **符号层**：强制执行声学安全边界（频率 20-20kHz，增益 ±24dB）
+- **符号层**：强制执行声学安全边界（频率 20-20kHz，增益 -24 到 +18dB）
 - **认知同步**：用户手动操作的频段被永久锁定，AI 自动避让
 
 ### 🎯 DSP 感知的干涉削减算法
@@ -60,40 +60,40 @@ LingoEQ 采用 **"AI 大脑 + DSP 执行器"** 分离架构，Python 后端负�
 │  Python Backend (LingoEQ)                                   │
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  MCPHandler (Central Dispatcher)                     │  │
+│  │  MCPHandler（中央调度器）                            │  │
 │  └──────────────────┬───────────────────────────────────┘  │
 │                     │                                        │
 │  ┌──────────────────▼───────────────────────────────────┐  │
-│  │  Step 1: Resource Aggregation (ContextManager)      │  │
-│  │  ├─ RouterAgent    → Extract {instruments, keywords}│  │
-│  │  ├─ RagEngine      → Retrieve mixing knowledge      │  │
-│  │  ├─ StateManager   → Get EQ state + locked bands    │  │
-│  │  ├─ SensoryManager → Audio snapshot analysis        │  │
-│  │  └─ MemoryManager  → List available presets         │  │
+│  │  第一步：资源聚合（ContextManager）                 │  │
+│  │  ├─ RouterAgent    → 提取 {乐器, 关键词}            │  │
+│  │  ├─ RagEngine      → 检索混音知识                   │  │
+│  │  ├─ StateManager   → 获取 EQ 状态 + 锁定频段        │  │
+│  │  ├─ SensoryManager → 音频快照分析                   │  │
+│  │  └─ MemoryManager  → 列出可用预设                   │  │
 │  └──────────────────┬───────────────────────────────────┘  │
 │                     │                                        │
 │  ┌──────────────────▼───────────────────────────────────┐  │
-│  │  Step 2: Prompt Engineering (PromptEngineer)        │  │
-│  │  Inject context into system prompt template         │  │
+│  │  第二步：Prompt 渲染（PromptEngineer）              │  │
+│  │  将上下文注入 System Prompt 模板                    │  │
 │  └──────────────────┬───────────────────────────────────┘  │
 │                     │                                        │
 │  ┌──────────────────▼───────────────────────────────────┐  │
-│  │  Step 3: LLM Inference (DeepSeekClient)             │  │
-│  │  • Extract <think> tags                              │  │
-│  │  • Parse JSON response                               │  │
-│  │  • Validate tool calls                               │  │
+│  │  第三步：LLM 推理（LLMClient）                     │  │
+│  │  • 提取 <think> 标签                                │  │
+│  │  • 解析 JSON 响应                                   │  │
+│  │  • 校验工具调用参数                                 │  │
 │  └──────────────────┬───────────────────────────────────┘  │
 │                     │                                        │
 │  ┌──────────────────▼───────────────────────────────────┐  │
-│  │  Step 4: Guardrail Enforcement (StateManager)       │  │
-│  │  • Redirect locked bands                             │  │
-│  │  • Calculate interference attenuation                │  │
-│  │  • Clamp parameters to safe ranges                   │  │
+│  │  第四步：护栏执行（StateManager）                   │  │
+│  │  • 锁定频段重定向                                   │  │
+│  │  • 计算干涉削减量                                   │  │
+│  │  • 参数钳位到安全范围                               │  │
 │  └──────────────────┬───────────────────────────────────┘  │
 │                     │                                        │
 │  ┌──────────────────▼───────────────────────────────────┐  │
-│  │  Step 5: Response Serialization                     │  │
-│  │  Build content_list → Send to C++                    │  │
+│  │  第五步：响应序列化                                 │  │
+│  │  构建 content_list → 发送给 C++                     │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -121,7 +121,7 @@ LingoEQ 采用 **"AI 大脑 + DSP 执行器"** 分离架构，Python 后端负�
 ```bash
 # 1. 克隆仓库
 git clone https://github.com/yuzh16/LingoEQ-agent.git
-cd LingoEQ
+cd LingoEQ-agent
 
 # 2. 创建虚拟环境
 python -m venv venv
@@ -152,6 +152,8 @@ LingoEQ_Project/
 ├── main.py                        # 入口：初始化 RAG，启动 TCP server
 ├── config.py                      # 全局配置单例（从 .env 读取）
 ├── requirements.txt
+├── lingoeq_bench_server.py        # Benchmark HTTP 接口（POST /benchmark，供 LingoEQ-Bench 评测使用）
+├── .env.example                   # 配置模板
 │
 ├── app/
 │   ├── api/
@@ -170,7 +172,7 @@ LingoEQ_Project/
 │   │   ├── state_manager.py       # 影子状态（24 频段镜像 + 护栏逻辑）
 │   │   ├── memory_manager.py      # 预设管理（ChromaDB CRUD）
 │   │   ├── rag_engine.py          # 知识检索（mixing_tips.json → ChromaDB）
-│   │   └── sensory_manager.py     # 音频感知（A 加权、掩蔽阈值、reflexion diff）
+│   │   └── sensory_manager.py     # 音频感知（心理声学计权、掩蔽阈值、reflexion diff）
 │   │
 │   └── schemas/
 │       ├── eq_protocol.py         # Pydantic 模型：EQBand、ToolCall、AgentResponse
@@ -204,7 +206,7 @@ LingoEQ_Project/
    - 软匹配：用关键词向量检索相关知识
    - 阈值拦截：L2 距离 > 1.125 的结果直接丢弃
 
-**效果**：检索精度提升 40%，避免无关知识干扰 LLM 决策。
+**效果**：有效避免无关知识干扰 LLM 决策，在多乐器场景下尤为显著。
 
 ---
 
@@ -369,6 +371,16 @@ C++ 插件通过 TCP Socket 与 Python 后端通信，使用换行符分隔的 J
 | `RAG_TOP_K` | 每次注入的知识条数 | `5` |
 | `RAG_DISTANCE_THRESHOLD` | L2 距离阈值 | `1.125` |
 | `PRESET_DISTANCE_THRESHOLD` | 预设匹配阈值 | `1.3` |
+| `MAX_CONVERSATION_HISTORY` | 携带的最大历史对话轮数 | `5` |
+
+### 心理声学与感知
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `PSYCHOACOUSTIC_MODEL` | 计权模型：`a_weighting` / `k_weighting` / `iso226_80phon` | `a_weighting` |
+| `MAX_SENSORY_SLOTS` | 允许缓存的音频快照槽位数量 | `5` |
+| `SENSORY_TOP_PEAKS` | 每次汇报的最显著峰值数量 | `3` |
+| `SENSORY_TOP_VALLEYS` | 每次汇报的最显著谷值数量 | `2` |
 
 ### 物理护栏
 

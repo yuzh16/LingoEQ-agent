@@ -5,12 +5,12 @@
     "target_instrument": "general",
     "acoustic_description": "声音听起来单薄，缺乏温度和厚度。",
     "action": {
-      "frequency_range": [200, 500],
+      "frequency_range": [200, 380],
       "filter_type": "Peaking",
       "gain_advice": "适度提升 (Boost)",
-      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.0) 以获得自然的听感"
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.0)，避免延伸到 400Hz 以上造成浑浊感"
     },
-    "reasoning_hint": "温暖感主要集中在中低频，提升该频段可增加声音的肉感和温度。"
+    "reasoning_hint": "温暖感主要集中在 200-380Hz，提升该频段可增加声音的肉感和温度。400Hz 以上容易引入 Boxiness（纸箱感），应避免提升范围过宽。"
   },
   {
     "id": "gen_mud",
@@ -40,7 +40,7 @@
   },
   {
     "id": "gen_air",
-    "intent": ["通透", "空气感", "亮", "开阔", "air", "airy", "清晰"],
+    "intent": ["空气感", "亮", "开阔", "air", "airy", "高频延伸", "高频空气"],
     "target_instrument": "general",
     "acoustic_description": "声音缺乏高频的延伸，听起来不够开阔和明亮。",
     "action": {
@@ -49,7 +49,7 @@
       "gain_advice": "适度提升 (Boost)",
       "q_advice": "N/A (HighShelf 通常保持默认斜率即可)"
     },
-    "reasoning_hint": "10kHz 以上的频段控制着声音的空气感和清晰度边缘。"
+    "reasoning_hint": "10kHz 以上的频段控制着声音的空气感和高频延伸。注意与「通透感」区分：通透感需要处理中频清晰度，空气感才是纯高频的延伸感。"
   },
   {
     "id": "gen_presence",
@@ -788,5 +788,166 @@
       "q_advice": "12dB/oct 或 24dB/oct"
     },
     "reasoning_hint": "使用 HighCut 切除 8000Hz 以上频率，可避免失真吉他高频刺耳音。"
+  },
+
+  {
+    "id": "cymbal_air",
+    "intent": ["镲片通透", "镲片空气感", "hi-hat明亮", "镲片亮度", "镲片延伸"],
+    "target_instrument": "drum",
+    "acoustic_description": "镲片或高帽缺乏高频延伸，听起来发沉。",
+    "action": {
+      "frequency_range": [10000, 16000],
+      "filter_type": "HighShelf",
+      "gain_advice": "轻微提升 2~3dB (Boost)",
+      "q_advice": "N/A (HighShelf 保持默认斜率)"
+    },
+    "reasoning_hint": "镲片的空气感来自 10kHz 以上的高频延伸，使用高频架式轻微提升效果最自然。"
+  },
+  {
+    "id": "cymbal_harsh",
+    "intent": ["镲片刺耳", "hi-hat尖锐", "镲片嘶声", "铙钹刺耳"],
+    "target_instrument": "drum",
+    "acoustic_description": "镲片中高频存在刺耳的嘶嘶声或尖锐感。",
+    "action": {
+      "frequency_range": [5000, 8000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 2~4dB (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.5)"
+    },
+    "reasoning_hint": "镲片的刺耳感通常集中在 5k-8kHz，针对性衰减可保留光泽感同时去除尖锐感。"
+  },
+  {
+    "id": "cymbal_mud",
+    "intent": ["镲片浑浊", "镲片低频", "铙钹发闷", "hi-hat闷"],
+    "target_instrument": "drum",
+    "acoustic_description": "镲片低中频浑浊，带有不必要的金属轰鸣感。",
+    "action": {
+      "frequency_range": [200, 500],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 2~4dB (Cut)",
+      "q_advice": "使用中等偏宽 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "切除镲片 200-500Hz 的中低频可减少金属轰鸣，使高频更干净通透。"
+  },
+
+  {
+    "id": "snare_crack",
+    "intent": ["军鼓爆裂感", "snare打击感", "军鼓响", "鼓点清脆", "snare crack"],
+    "target_instrument": "drum",
+    "acoustic_description": "军鼓缺乏击打时的爆裂感和冲击力。",
+    "action": {
+      "frequency_range": [2000, 4000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~5dB (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "2k-4kHz 是军鼓击打爆裂感的核心频段，提升可使军鼓更有冲击力。"
+  },
+  {
+    "id": "snare_body",
+    "intent": ["军鼓厚度", "snare饱满", "军鼓单薄", "军鼓低频"],
+    "target_instrument": "drum",
+    "acoustic_description": "军鼓听起来单薄，缺乏中低频的肉感。",
+    "action": {
+      "frequency_range": [100, 200],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~4dB (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.0)"
+    },
+    "reasoning_hint": "100-200Hz 是军鼓鼓体共鸣的主体区，提升可增加军鼓的肉感和厚度。"
+  },
+  {
+    "id": "snare_snappy",
+    "intent": ["军鼓弹簧声", "snare响弦", "军鼓沙沙", "军鼓弹性"],
+    "target_instrument": "drum",
+    "acoustic_description": "军鼓底部响弦的沙沙声不够突出，缺乏弹性。",
+    "action": {
+      "frequency_range": [5000, 8000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~3dB (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "5k-8kHz 控制着军鼓响弦的高频沙沙声，提升可增强弹性感与响弦存在感。"
+  },
+
+  {
+    "id": "aguitar_air",
+    "intent": ["木吉他空气感", "原声吉他高频", "木吉他亮度", "木吉他通透"],
+    "target_instrument": "guitar",
+    "acoustic_description": "木吉他高频延伸不足，听起来发暗缺乏通透感。",
+    "action": {
+      "frequency_range": [8000, 14000],
+      "filter_type": "HighShelf",
+      "gain_advice": "提升 2~3dB (Boost)",
+      "q_advice": "N/A (HighShelf 保持默认斜率)"
+    },
+    "reasoning_hint": "木吉他的高频空气感来自 8k-14kHz 的自然延伸，高频架式轻提可增加通透感而不引入刺耳感。"
+  },
+
+  {
+    "id": "voc_throat",
+    "intent": ["喉音感", "喉音过重", "喉咙共鸣", "嗓音发沉", "低沉喉音"],
+    "target_instrument": "vocal",
+    "acoustic_description": "人声喉腔共鸣过重，听起来像从喉咙深处发出，过于低沉压抑。",
+    "action": {
+      "frequency_range": [300, 500],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 2~4dB (Cut)",
+      "q_advice": "使用中等 Q 值 (约 1.5 - 2.0)"
+    },
+    "reasoning_hint": "人声喉腔共鸣主要集中在 300-500Hz，适度衰减可减少喉音感。注意与温暖感频段接近，不要过度衰减以免人声变薄。"
+  },
+
+  {
+    "id": "gen_transient",
+    "intent": ["打击感", "attack感", "瞬态", "冲击感", "锤击感", "transient", "起音"],
+    "target_instrument": "general",
+    "acoustic_description": "声音缺乏起始瞬态的冲击力，听起来软绵绵的。",
+    "action": {
+      "frequency_range": [2000, 5000],
+      "filter_type": "Peaking",
+      "gain_advice": "提升 2~4dB (Boost)",
+      "q_advice": "使用中等 Q 值 (约 1.0 - 1.5)"
+    },
+    "reasoning_hint": "2k-5kHz 是打击类乐器起始瞬态的核心频段，提升可增强 attack 感和冲击力。"
+  },
+  {
+    "id": "gen_thickness",
+    "intent": ["浑厚", "低频下潜", "厚重感", "重量感", "沉稳", "低频分量", "厚实"],
+    "target_instrument": "general",
+    "acoustic_description": "声音缺乏低频的重量感和下潜深度，听起来漂浮感强。",
+    "action": {
+      "frequency_range": [60, 120],
+      "filter_type": "Peaking",
+      "gain_advice": "适度提升 2~4dB (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.0)，避免 Q 值过窄产生轰鸣"
+    },
+    "reasoning_hint": "60-120Hz 控制声音的低频重量感与下潜深度。若已有 200-400Hz 过多能量，应先处理浑浊再补低频，否则会加剧轰鸣。"
+  },
+  {
+    "id": "gen_crisp",
+    "intent": ["清脆感", "crisp", "干脆", "颗粒清晰", "清脆不刺"],
+    "target_instrument": "general",
+    "acoustic_description": "声音缺乏高频的清脆质感，细节不突出。",
+    "action": {
+      "frequency_range": [6000, 10000],
+      "filter_type": "Peaking",
+      "gain_advice": "轻微提升 1~3dB (Boost)",
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.2)，避免窄带提升引起刺耳感"
+    },
+    "reasoning_hint": "6k-10kHz 宽带提升可增加声音的清脆感。清脆感来自平滑宽带提升，刺耳感来自窄带峰值，Q 值不宜过窄。"
+  },
+  {
+    "id": "gen_distance",
+    "intent": ["空间距离感", "推远", "声场纵深", "混音层次", "远景感"],
+    "target_instrument": "general",
+    "acoustic_description": "声音在混音中位置太近太靠前，缺乏空间层次感。",
+    "action": {
+      "frequency_range": [3000, 5000],
+      "filter_type": "Peaking",
+      "gain_advice": "衰减 1~3dB (Cut)",
+      "q_advice": "使用较宽的 Q 值 (约 0.7 - 1.0)"
+    },
+    "reasoning_hint": "人耳通过 3k-5kHz 的能量判断声源距离，适度衰减该频段可将声音推远，增加空间纵深感。"
   }
 ]
