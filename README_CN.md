@@ -60,7 +60,7 @@ LingoEQ 采用 **"AI 大脑 + DSP 执行器"** 分离架构，Python 后端负�
 │  Python Backend (LingoEQ)                                   │
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  MCPHandler（中央调度器）                            │  │
+│  │  AgentDispatcher（中央调度器）                            │  │
 │  └──────────────────┬───────────────────────────────────┘  │
 │                     │                                        │
 │  ┌──────────────────▼───────────────────────────────────┐  │
@@ -159,7 +159,7 @@ LingoEQ_Project/
 │   ├── api/
 │   │   └── socket_transport.py    # 异步 TCP 传输层
 │   │
-│   ├── mcp_protocol/
+│   ├── dispatcher/
 │   │   └── server.py              # 中央调度器（处理所有 JSON-RPC 方法）
 │   │
 │   ├── core/

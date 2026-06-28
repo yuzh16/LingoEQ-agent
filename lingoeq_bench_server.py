@@ -14,7 +14,7 @@ lingoeq_bench_server.py — LingoEQ-Bench 评测专用 HTTP Facade 入口
   POST /health
 
 注意：
-  - 每次请求创建全新 MCPHandler，保证 test case 间状态完全隔离。
+  - 每次请求创建全新 AgentDispatcher，保证 test case 间状态完全隔离。
   - 本文件与 main.py 完全解耦，不干扰正常生产运行。
   - 需要先安装评测依赖：pip install fastapi uvicorn
 """
@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 # 确保项目根目录在 sys.path 中，支持从任意工作目录启动
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.mcp_protocol.server import MCPHandler
+from app.dispatcher.server import AgentDispatcher
 
 
 # ============================================================
@@ -112,14 +112,14 @@ app = FastAPI(
 
 # 服务启动时初始化一次，embedding 模型和 ChromaDB 只加载一次
 # 每次请求通过 reset() 清空状态，避免重复初始化带来的巨大开销
-_handler = MCPHandler()
+_handler = AgentDispatcher()
 
 
 # ============================================================
 # 核心辅助函数
 # ============================================================
 
-def _inject_environment(handler: MCPHandler, env: Optional[EnvironmentContext],
+def _inject_environment(handler: AgentDispatcher, env: Optional[EnvironmentContext],
                         skip_state: bool = False, skip_sensory: bool = False) -> None:
     """
     将 Benchmark 提供的环境数据注入到已 reset 的 handler 中。
@@ -224,7 +224,7 @@ def benchmark(request: BenchmarkRequest):
     主评测接口。
 
     流程：
-      1. 创建全新 MCPHandler（每次请求独立实例，保证 test case 状态隔离）
+      1. 创建全新 AgentDispatcher（每次请求独立实例，保证 test case 状态隔离）
       2. 注入环境数据（locked_bands + sensory_raw_data）
       3. 执行内部流水线（跳过 TCP socket 层）
       4. 提取 adjust_eq_band 动作并映射字段名
@@ -250,7 +250,7 @@ def benchmark(request: BenchmarkRequest):
         skip_sensory=request.skip_sensory
     )
 
-    # Step 3：内部流水线（与 MCPHandler.process_request chat/send 分支逻辑对齐）
+    # Step 3：内部流水线（与 AgentDispatcher.process_request chat/send 分支逻辑对齐）
     try:
         context_data = _handler.context_manager.collect_resources(
             effective_prompt,

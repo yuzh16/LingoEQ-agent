@@ -60,7 +60,7 @@ LingoEQ adopts an **"AI Brain + DSP Executor"** separated architecture. The Pyth
 │  Python Backend (LingoEQ)                                   │
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  MCPHandler (Central Dispatcher)                     │  │
+│  │  AgentDispatcher (Central Dispatcher)                     │  │
 │  └──────────────────┬───────────────────────────────────┘  │
 │                     │                                        │
 │  ┌──────────────────▼───────────────────────────────────┐  │
@@ -159,7 +159,7 @@ LingoEQ_Project/
 │   ├── api/
 │   │   └── socket_transport.py    # Async TCP transport layer
 │   │
-│   ├── mcp_protocol/
+│   ├── dispatcher/
 │   │   └── server.py              # Central dispatcher (handles all JSON-RPC methods)
 │   │
 │   ├── core/

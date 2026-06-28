@@ -16,7 +16,7 @@ class ContextManager:
     4. 输出结构化的 Context 字典 (Resource Dictionary)，不包含任何 System Prompt 模板拼接逻辑。
     """
 
-    def __init__(self, 
+    def __init__(self,
                  state_manager: StateManager,
                  memory_manager: MemoryManager,
                  rag_engine: RagEngine,
@@ -43,7 +43,7 @@ class ContextManager:
         if not skip_rag:
             print(f"⚡ [ContextManager] 正在请求意图分析...")
             intent_data = self.router.analyze_intent(user_input)
-            
+
             print(f"🔍 [ContextManager] 正在检索混音知识...")
             rag_content = self.rag.search(intent_data)
         else:
@@ -64,18 +64,17 @@ class ContextManager:
         sensory_content = "" if skip_sensory else self.sensory.get_sensory_data()
 
         # 7. 打包资源
-        # 返回纯数据字典，不做字符串拼接
         resources = {
             "user_input": user_input,
-            "intent": intent_data,         # 保留意图原始数据，供 PromptEngineer 决策使用
+            "intent": intent_data,
             "resources": {
-                "rag_context": rag_content,       # 对应原 rag_context
-                "state_context": state_content,   # 对应原 state_context
-                "preset_context": preset_content, # 对应原 preset_context
-                "tool_context": tool_definitions,  # 对应原 tool_context
-                "sensory_context": sensory_content # 对应原 sensory_context
+                "rag_context": rag_content,
+                "state_context": state_content,
+                "preset_context": preset_content,
+                "tool_context": tool_definitions,
+                "sensory_context": sensory_content
             }
         }
-        
+
         print(f"📦 [ContextManager] 资源聚合完成。")
         return resources

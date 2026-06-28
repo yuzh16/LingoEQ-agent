@@ -1,13 +1,13 @@
 import asyncio
 import json
-from app.mcp_protocol.server import MCPHandler
+from app.dispatcher.server import AgentDispatcher
 from config import settings
 
 class SocketServer:
     def __init__(self, host=settings.WS_HOST, port=settings.WS_PORT, rag_engine=None):
         self.host = host
         self.port = port
-        self.mcp_handler = MCPHandler(rag_engine=rag_engine)
+        self.dispatcher = AgentDispatcher(rag_engine=rag_engine)
 
     async def handle_client(self, reader, writer):
         addr = writer.get_extra_info('peername')
@@ -34,7 +34,7 @@ class SocketServer:
                     # -------------------------------------------------------
                     print(f"🔄 [Socket] 正在处理请求 (Offloading to thread)...")
                     response_data = await asyncio.to_thread(
-                        self.mcp_handler.process_request, 
+                        self.dispatcher.process_request,
                         request_json
                     )
                     

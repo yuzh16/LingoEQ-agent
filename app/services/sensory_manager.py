@@ -107,7 +107,7 @@ class SensoryManager:
             for j in range(num_bands):
                 if i == j:
                     # 频段自身的掩蔽效应（需要高出底噪一定程度才算清晰）
-                    mask = energy - 6.0 
+                    mask = energy - 6.0
                 elif j > i:
                     # 向上掩蔽 (Upward Spread): 低频掩蔽高频，坡度较缓 (例如每频段衰减 10dB)
                     mask = energy - 10.0 * (j - i) - 6.0
